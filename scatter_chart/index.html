@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" type="text/css" href="scatterchart.css">
+    <script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>
+    <!--<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>-->
+</head>
+<body>
+<div id="chart"></div>
+
+<script type="text/javascript">
+    var tooltip = d3.select('#chart').append('div').attr('class', 'tooltip').style("opacity", 0);
+
+    //Width and height (of the div)
+    var w = 1200;
+    var h = 1200;
+    var margin = {}
+    var padding = 50;
+    var color = d3.scale.category10()
+    var dataset
+    d3.csv('pppdata.csv', function (error, data) {
+        data.forEach(function (d) {
+            d.piece_count = +d.piece_count;
+            d.real_ppp = +d.real_ppp;
+            d.real_price = +d.real_price
+        });
+        dataset = data;
+        console.log(dataset);
+        scatterchart();
+    });
+</script>
+<script src="scatterchart.js" charset="utf-8"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" type="text/css" href="distrochart.css">
+    <script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>
+    <!--<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>-->
+</head>
+<body>
+<div class="chart-wrapper" id="chart-distro1"></div>
+
+<script type="text/javascript">
+    d3.csv('pppdata.csv', function(error, data) {
+        data.forEach(function (d) {
+            d.real_price = +d.real_price;
+    });
+
+    var chart = makeDistroChart(data, 'theme_cat', 'real_price', {xAxis: 'Themes', yAxis: 'Prices'});
+    chart.bind("#chart-distro1");
+//    chart.render();
+
+});
+</script>
+<script src="distrochart.js" charset="utf-8"></script>
+</body>
+</html>

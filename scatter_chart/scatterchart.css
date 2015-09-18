@@ -1,0 +1,32 @@
+circle {
+    opacity: 0.5;
+}
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: #1F1F2E;
+    stroke-opacity: 0.7;
+    shape-rendering: crispEdges;
+}
+
+.axis path {
+    stroke-width: 2px;
+}
+
+.axis text {
+    font-family: sans-serif;
+    font-size: 11px;
+}
+
+div.tooltip {
+    position: absolute;
+    text-align: center;
+    height: 28px;
+    padding: 5px;
+    font: 12px sans-serif;
+    background: lightgoldenrodyellow;
+    border: 0px;
+    border-radius: 3px;
+    pointer-events: none;
+}
