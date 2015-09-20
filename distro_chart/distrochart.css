@@ -1,3 +1,30 @@
+.chart-wrapper line {
+    fill: none;
+    stroke: black;
+    stroke-width: 2px;
+}
+
+.chart-wrapper circle {
+    fill: black;
+}
+
+.chart-wrapper line.median, .chart-wrapper circle.median {
+    stroke: white;
+}
+.chart-wrapper circle.median {
+    fill: black !important;
+}
+.chart-wrapper line.mean, .chart-wrapper circle.mean {
+    stroke: white;
+    stroke-dasharray: 2,1;
+    stroke-width: 1px;
+}
+
+.chart-wrapper circle.extreme {
+    fill: white;
+    stroke: black;
+}
+
 .chart-wrapper {
     max-width: 650px;
     min-width: 304px;
@@ -7,7 +34,7 @@
 
 .chart-wrapper .inner-wrapper {
     position: relative;
-    padding-bottom: 50%;
+    padding-bottom: 50%;s
     width: 100%;
 }
 
@@ -55,7 +82,7 @@
     display: flex;
     justify-content: flex-start;
     flex-wrap: wrap;
-    font-size: 16px;
+    /*font-size: 16px;*/
     padding: 10px 40px;
 }
 .chart-wrapper .legend > div {
@@ -71,36 +98,15 @@
 .chart-wrapper .legend .series-marker {
     height: 1em;
     width: 1em;
-    border-radius: 35%;
+    border-radius: 25%;
     background-color: crimson;
     display: inline-block;
     margin-right: 4px;
     margin-bottom: -0.16rem;
 }
 
-.chart-wrapper .overlay {
-  fill: none;
-  pointer-events: all;
-}
 
-.chart-wrapper .focus circle {
-  fill: crimson;
-  stroke: crimson;
-  stroke-width: 2px;
-  fill-opacity: 15%;
-}
-.chart-wrapper .focus rect {
-    fill: lightblue;
-    opacity: 0.4;
-    border-radius: 2px;
-}
-.chart-wrapper .focus.line {
-    stroke: steelblue;
-    stroke-dasharray: 2,5;
-    stroke-width: 2;
-    opacity: 0.5;
-}
 @media (max-width:500px){
-    .chart-wrapper .line {stroke-width: 3px;}
     .chart-wrapper .legend {font-size: 14px;}
+    .chart-wrapper circle {display: none;}
 }

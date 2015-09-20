@@ -17,8 +17,8 @@
     });
 
     var chart = makeDistroChart(data, 'theme_cat', 'real_price', {xAxis: 'Themes', yAxis: 'Prices'});
-    chart.bind("#chart-distro1");
-//    chart.render();
+    chart.bind("#chart-distro1",{scale: 'log'});
+    chart.renderBoxPlot({showMean: true});
 
 });
 </script>
