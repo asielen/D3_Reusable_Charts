@@ -120,7 +120,7 @@
 
 <footer>
 <script type="text/javascript">
-    data =
+    histogramData =
     [
 {
 "year":1980,
@@ -376,8 +376,8 @@
 }
 ]
     // d3.csv(d3.csv.parse()'http://localhost:8000/lego/setinfo201505.csv',
-    //     function(error, data) {
-    //         data.forEach(function(d) {
+    //     function(error, histogramData) {
+    //         histogramData.forEach(function(d) {
     //             d.year = +d.year;
     //             d.num_sets = +d.num_sets;
     //             d.unique_to_total = +d.unique_to_total;
@@ -389,22 +389,22 @@
                         'Total Number': {column:'variableA'},
                         'Average Pieces':{column:'avg_of_pieces'}
                         }
-            var chart1 = makeLineChart(data, 'year', cys, {xAxis:'Years',yAxis:'Pieces'})
+            var chart1 = makeLineChart(histogramData, 'year', cys, {xAxis:'Years',yAxis:'Pieces'})
               .bind("#chart-line1")
               .render();
 
-            var chart2 = makeLineChart(data, 'year',{'Unique to Total':{column:'unique_to_total'}}, {xAxis:'Years', yAxis:'Unique to Total'});
+            var chart2 = makeLineChart(histogramData, 'year',{'Unique to Total':{column:'unique_to_total'}}, {xAxis:'Years', yAxis:'Unique to Total'});
             chart2.bind("#chart-line2");
             chart2.render();
 
             var cys = {'Average Pieces':{column:'avg_of_pieces'}};
-            var chart3 = makeLineChart(data, 'year', cys, {xAxis:'Years',yAxis:'Total'});
+            var chart3 = makeLineChart(histogramData, 'year', cys, {xAxis:'Years',yAxis:'Total'});
             chart3.bind("#chart-line3");
             chart3.yFormatter = chart3.formatAsNumber;
             chart3.render();
 
             var chart4 = makeLineChart(
-                data, 'year',
+                histogramData, 'year',
                 {
                     'Piece StDev':{column:'pieces_std'},
                     'Average Pieces':{column:'avg_of_pieces'},
@@ -427,7 +427,7 @@
         {y1:{column:'',name:'name',color:'color'},y2}
         */
 
-        obj.data = dataset;
+        obj.histogramData = dataset;
         obj.margin = {top:15, right: 60, bottom: 30, left: 50};
         obj.width = 650 - obj.margin.left - obj.margin.right;
         obj.height = 480 - obj.margin.top - obj.margin.bottom;
@@ -470,10 +470,10 @@
         //Create scale functions
         obj.xScale = d3.scale.linear()
             .range([0, obj.width])
-            .domain(d3.extent(obj.data, obj.xFunct)); //< Can be overridden in definition
+            .domain(d3.extent(obj.histogramData, obj.xFunct)); //< Can be overridden in definition
 
       // Get the max of every yFunct
-        obj.max = function (fn) {return d3.max(obj.data, fn)};
+        obj.max = function (fn) {return d3.max(obj.histogramData, fn)};
         obj.yScale = d3.scale.linear()
             .range([obj.height, 0])
             .domain([0, d3.max(obj.yFuncts.map(obj.max))]);
@@ -579,7 +579,7 @@
             // Draw Lines
             for (y in yObjs) {
                 yObjs[y].path = obj.svg.append("path")
-                    .datum(obj.data)
+                    .datum(obj.histogramData)
                     .attr("class", "line")
                     .attr("d", yObjs[y].line)
                     .style("stroke", color(y))
@@ -661,8 +661,8 @@
             function mousemove() {
                 var x0 = obj.xScale.invert(d3.mouse(this)[0]),
                     i = obj.bisectYear(dataset, x0, 1),
-                    d0 = obj.data[i - 1],
-                    d1 = obj.data[i];
+                    d0 = obj.histogramData[i - 1],
+                    d1 = obj.histogramData[i];
                 try {
                     var d = x0 - obj.xFunct(d0) > obj.xFunct(d1) - x0 ? d1 : d0;
                 } catch (e)  { return;}

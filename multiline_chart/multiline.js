@@ -8,7 +8,7 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
      {y1:{column:'',name:'name',color:'color'},y2}
      */
 
-    chartObj.data = dataset;
+    chartObj.histogramData = dataset;
     chartObj.margin = {top: 15, right: 60, bottom: 30, left: 50};
     chartObj.width = 650 - chartObj.margin.left - chartObj.margin.right;
     chartObj.height = 480 - chartObj.margin.top - chartObj.margin.bottom;
@@ -50,11 +50,11 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
     chartObj.bisectYear = d3.bisector(chartObj.xFunct).left; //< Can be overridden in definition
 
 //Create scale functions
-    chartObj.xScale = d3.scale.linear().range([0, chartObj.width]).domain(d3.extent(chartObj.data, chartObj.xFunct)); //< Can be overridden in definition
+    chartObj.xScale = d3.scale.linear().range([0, chartObj.width]).domain(d3.extent(chartObj.histogramData, chartObj.xFunct)); //< Can be overridden in definition
 
 // Get the max of every yFunct
     chartObj.max = function (fn) {
-        return d3.max(chartObj.data, fn);
+        return d3.max(chartObj.histogramData, fn);
     };
     chartObj.yScale = d3.scale.linear().range([chartObj.height, 0]).domain([0, d3.max(chartObj.yFuncts.map(chartObj.max))]);
 
@@ -132,7 +132,7 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
 
         // Draw Lines
         for (var y  in yObjs) {
-            yObjs[y].path = chartObj.svg.append("path").datum(chartObj.data).attr("class", "line").attr("d", yObjs[y].line).style("stroke", color(y)).attr("data-series", y).on("mouseover", function () {
+            yObjs[y].path = chartObj.svg.append("path").datum(chartObj.histogramData).attr("class", "line").attr("d", yObjs[y].line).style("stroke", color(y)).attr("histogramData-series", y).on("mouseover", function () {
                 focus.style("display", null);
             }).on("mouseout", function () {
                 focus.transition().delay(700).style("display", "none");
@@ -178,7 +178,7 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
 
         return chartObj;
         function mousemove() {
-            var x0 = chartObj.xScale.invert(d3.mouse(this)[0]), i = chartObj.bisectYear(dataset, x0, 1), d0 = chartObj.data[i - 1], d1 = chartObj.data[i];
+            var x0 = chartObj.xScale.invert(d3.mouse(this)[0]), i = chartObj.bisectYear(dataset, x0, 1), d0 = chartObj.histogramData[i - 1], d1 = chartObj.histogramData[i];
             try {
                 var d = x0 - chartObj.xFunct(d0) > chartObj.xFunct(d1) - x0 ? d1 : d0;
             } catch (e) { return;}

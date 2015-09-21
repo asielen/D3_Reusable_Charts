@@ -6,13 +6,14 @@
 
 .chart-wrapper circle {
     fill: black;
+
 }
 
 .chart-wrapper line.median, .chart-wrapper circle.median {
-    stroke: white;
+    stroke: black;
 }
 .chart-wrapper circle.median {
-    fill: black !important;
+    fill: white !important;
 }
 .chart-wrapper line.mean, .chart-wrapper circle.mean {
     stroke: white;
@@ -67,9 +68,15 @@
     shape-rendering: crispEdges;
 
 }
+.chart-wrapper .area {
+    opacity: 0.4;
+}
 .chart-wrapper .axis path {
   stroke-width: 2px;
 }
+/*.chart-wrapper .x.axis path {*/
+  /*display: none;*/
+/*}*/
 
 .chart-wrapper .line {
   fill: none;

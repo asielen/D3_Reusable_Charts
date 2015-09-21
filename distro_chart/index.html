@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title></title>
+    <!--http://stanford.edu/~mwaskom/software/seaborn/generated/seaborn.violinplot.html-->
     <link rel="stylesheet" type="text/css" href="distrochart.css">
-    <script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>
-    <!--<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>-->
+    <!--<script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>-->
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 </head>
 <body>
 <div class="chart-wrapper" id="chart-distro1"></div>
@@ -17,8 +18,11 @@
     });
 
     var chart = makeDistroChart(data, 'theme_cat', 'real_price', {xAxis: 'Themes', yAxis: 'Prices'});
-    chart.bind("#chart-distro1",{scale: 'log'});
-    chart.renderBoxPlot({showMean: true});
+    chart.bind("#chart-distro1",{scale: 'log', incOutliers: true});
+
+    chart.renderBoxPlot({showBox: false, showWhiskers: false, showOutliers: false});
+        chart.renderViolinPlot();
+
 
 });
 </script>
