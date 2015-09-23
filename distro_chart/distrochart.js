@@ -15,7 +15,8 @@ function makeDistroChart(dataset, xGroup, yValue) {
     * */
 
     var chartObj = {};
-    var color = d3.scale.category10();
+
+    var colorFunct =  d3.scale.category10(); //function () {return 'lightgrey';};
 
     function formatAsFloat(d) {
         if (d % 1 !== 0) {
@@ -38,6 +39,53 @@ function makeDistroChart(dataset, xGroup, yValue) {
     chartObj.xGroup = xGroup;
     chartObj.yValue = yValue;
     chartObj.dataObjects = {}; //The data organized by grouping and sorted as well as any metadata for the groups
+
+    function calcMetrics(values){
+
+            var metrics = { //These are the original non–scaled values
+                    max: null,
+                    upperOuterFence: null,
+                    upperInnerFence: null,
+                    quartile3: null,
+                    median: null,
+                    mean: null,
+                    iqr: null,
+                    quartile1: null,
+                    lowerInnerFence: null,
+                    lowerOuterFence: null,
+                    min: null
+                };
+            metrics.min = d3.min(values);
+            metrics.quartile1 = d3.quantile(values, 0.25);
+            metrics.median = d3.median(values);
+            metrics.mean = d3.mean(values);
+            metrics.quartile3 = d3.quantile(values, 0.75);
+            metrics.max = d3.max(values);
+
+            metrics.iqr = metrics.quartile3 - metrics.quartile1;
+
+            //The inner fences are the closest value to the IQR without going past it (assumes sorted lists)
+            var LIF = metrics.quartile1 - (1.5 * metrics.iqr);
+            var UIF = metrics.quartile3 + (1.5 * metrics.iqr);
+            for (var i = 0; i <= values.length; i++) {
+                if (values[i] < LIF) {continue;}
+                if (!metrics.lowerInnerFence && values[i] >= LIF) {
+                    metrics.lowerInnerFence = values[i];
+                    continue;
+                }
+                if (values[i] > UIF) {
+                    metrics.upperInnerFence = values[i - 1];
+                    break;
+                }
+            }
+
+            metrics.lowerOuterFence = metrics.quartile1 - (3 * metrics.iqr);
+            metrics.upperOuterFence = metrics.quartile3 + (3 * metrics.iqr);
+            if (!metrics.lowerInnerFence) {metrics.lowerInnerFence = metrics.min;}
+            if (!metrics.upperInnerFence) {metrics.upperInnerFence = metrics.max;}
+            return metrics
+        }
+
     (function () {
         /*
         * Takes the dataset that is an array of objects and groups the yValues by xGroups and then sorts it
@@ -59,12 +107,34 @@ function makeDistroChart(dataset, xGroup, yValue) {
             }
         }
 
-        var current_group;
+        var cName;
         // Sort them
-        for  (current_group in chartObj.dataObjects) {
-            chartObj.dataObjects[current_group].values.sort(d3.ascending);
+        for  (cName in chartObj.dataObjects) {
+            chartObj.dataObjects[cName].values.sort(d3.ascending);
+            chartObj.dataObjects[cName].metrics = {};
+            chartObj.dataObjects[cName].metrics = calcMetrics(chartObj.dataObjects[cName].values);
+
         }
+
+
     })();
+
+    function updateColorFunction (colorOptions){
+        if (typeof colorOptions == 'function') {
+            return colorOptions
+        } else if (Array.isArray(colorOptions)) {
+            //  If an array is provided, map it to the domain
+            var colorMap = {}, cColor = 0;
+            for (var cName in chartObj.dataObjects) {
+                colorMap[cName] = colorOptions[cColor];
+                cColor = (cColor + 1) % colorOptions.length;
+            }
+            return function (group) {return colorMap[group];}
+        } else if (typeof colorOptions == 'object') {
+            // if an object is provided, assume it maps to  the colors
+            return function (group) {return colorOptions[group];}
+        }
+    }
 
     chartObj.updateChart = function () {
         //Base
@@ -75,14 +145,16 @@ function makeDistroChart(dataset, xGroup, yValue) {
         chartObj.xScale.rangeBands([0, chartObj.width]);
         chartObj.yScale.range([chartObj.height, 0]);
         //Updae axes
-        chartObj.svg.select('.x.axis').attr("transform", "translate(0," + chartObj.height + ")").call(chartObj.xAxis);
+        chartObj.svg.select('.x.axis').attr("transform", "translate(0," + chartObj.height + ")").call(chartObj.xAxis)
+            .selectAll("text")
+            .attr("y",5)
+            .attr("x",-5)
+            .attr("transform", "rotate(-45)")
+            .style("text-anchor", "end");;
         chartObj.svg.select('.x.axis .label').attr("x", chartObj.width / 2);
         chartObj.svg.select('.y.axis').call(chartObj.yAxis);
         chartObj.svg.select('.y.axis .label').attr("x", -chartObj.height / 2);
         chartObj.chartDiv.select('svg').attr("width", chartObj.width + (chartObj.margin.left + chartObj.margin.right)).attr("height", chartObj.height + (chartObj.margin.top + chartObj.margin.bottom));
-
-        //Violin
-
 
         return chartObj;
     };
@@ -93,11 +165,11 @@ function makeDistroChart(dataset, xGroup, yValue) {
         *  – Selector is the id to attach the chart to
         *  – chartSize is height and width of the div
         *  – margin is the margins around the div
-        *  Todo: imppliment inclOutlier for min/max setup
         *  Todo: legend options or data labels
         *  - showLegend True/False
         *  - showXLables True/False
-        *  options = {chartSize, margin, axisLabels, scale}
+        *  - colors, takes a list of hex values or a function and uses it for the color function
+        *  - constrainExtremes True/False, if true max is then the max of the lower fences
          */
 
         //Get base data
@@ -105,14 +177,14 @@ function makeDistroChart(dataset, xGroup, yValue) {
             if (options && options.margin) {
                 chartObj.margin = margin;
             } else {
-                chartObj.margin = {top: 15, right: 60, bottom: 10, left: 50};
+                chartObj.margin = {top: 15, right: 20, bottom: 35, left: 50};
             }
             if (options && options.chartSize) {
                 chartObj.divWidth = chartSize.width;
                 chartObj.divHeight = chartSize.height;
             } else {
-                chartObj.divWidth = 650;
-                chartObj.divHeight = 325;
+                chartObj.divWidth = 800;
+                chartObj.divHeight = 600;
             }
 
             chartObj.width = chartObj.divWidth - chartObj.margin.left - chartObj.margin.right;
@@ -131,8 +203,26 @@ function makeDistroChart(dataset, xGroup, yValue) {
             } else {
                 chartObj.yScale = d3.scale.linear();
             }
-            chartObj.range = d3.extent(chartObj.data, function(d){return d[chartObj.yValue]; });
-            chartObj.yScale.range([chartObj.height, 0]).domain(chartObj.range);
+
+            if (options && options.constrainExtremes === true) {
+                var fences = [];
+                for (var cName in chartObj.dataObjects) {
+                    fences.push(chartObj.dataObjects[cName].metrics.lowerInnerFence);
+                    fences.push(chartObj.dataObjects[cName].metrics.upperInnerFence);
+                }
+                chartObj.range = d3.extent(fences);
+
+            } else {
+                chartObj.range = d3.extent(chartObj.data, function (d) {return d[chartObj.yValue];});
+            }
+
+            // Take the options colors argument and update the colors function
+            if (options && options.colors) {
+                colorFunct = updateColorFunction(options.colors);
+            }
+
+
+            chartObj.yScale.range([chartObj.height, 0]).domain(chartObj.range).clamp(true);
             // Get x range
             chartObj.xScale = d3.scale.ordinal().domain(Object.keys(chartObj.dataObjects)).rangeBands([0, chartObj.width]);
             //Build Axes
@@ -141,7 +231,7 @@ function makeDistroChart(dataset, xGroup, yValue) {
                 .orient("left")
                 .tickFormat(chartObj.yFormatter)
                 .tickSize(0);
-            chartObj.xAxis = d3.svg.axis().scale(chartObj.xScale).tickFormat('').tickSize(10).orient("bottom");
+            chartObj.xAxis = d3.svg.axis().scale(chartObj.xScale).orient("bottom");
 
         })();
 
@@ -167,6 +257,9 @@ function makeDistroChart(dataset, xGroup, yValue) {
             .attr("class", "x axis")
             .attr("transform", "translate(0," + chartObj.height + ")")
             .call(chartObj.xAxis);
+
+
+
         chartObj.svg.append("g")
             .attr("class", "y axis")
             .call(chartObj.yAxis)
@@ -180,23 +273,36 @@ function makeDistroChart(dataset, xGroup, yValue) {
                 .text(chartObj.yAxisLable);
 
         // Create legend
-        var legend = chartObj.mainDiv.append('div').attr("class", "legend");
-        var cGroup, series;
-        for (cGroup in chartObj.dataObjects) {
-            series = legend.append('div').style("width",136+"px");
-            series.append('div').attr("class", "series-marker").style("background-color", color(cGroup));
-            series.append('p').text(cGroup);
-            chartObj.dataObjects[cGroup].legend = series;
-        }
+        //var legend = chartObj.mainDiv.append('div').attr("class", "legend");
+        //var cGroup, series;
+        //for (cGroup in chartObj.dataObjects) {
+        //    series = legend.append('div').style("width",136+"px");
+        //    series.append('div').attr("class", "series-marker").style("background-color", color(cGroup));
+        //    series.append('p').text(cGroup);
+        //    chartObj.dataObjects[cGroup].legend = series;
+        //}
         chartObj.updateChart();
 
         return chartObj;
     };
 
+    chartObj.updateBoxSize = function(boxWidth) {
+            var boxSize = {left:null, right:null, middle:null};
+            var width = chartObj.xScale.rangeBand() * (boxWidth/100);
+            var padding = (chartObj.xScale.rangeBand()-width)/2;
+            boxSize.middle = chartObj.xScale.rangeBand()/2;
+            boxSize.left = padding;
+            boxSize.right = boxSize.left+width;
+            return boxSize;
+    };
+
     chartObj.renderViolinPlot = function(options) {
         /*
-        * Needs to take into account scales (lin/log)
-        * Possible options
+        * Possible
+        *  - resolution, number of bins
+        *  - widthMuliplier (wider or not)
+        *  - plot points (tbd)
+        *  - showBuckets True/False (instead of smooth, have steps)
         *
          */
         chartObj.violinPlots = {};
@@ -206,283 +312,271 @@ function makeDistroChart(dataset, xGroup, yValue) {
         chartObj.violinPlots.calculateNumBins = function(cGroup){
             var iqr;
             if (chartObj.boxPlots) {
-                iqr = chartObj.boxPlots.plots[cGroup].values.iqr
+                iqr = chartObj.dataObjects[cGroup].metrics.iqr
             } else {
                 var quartile1 = d3.quantile(chartObj.dataObjects[cGroup].values, 0.25);
                 var quartile3 = d3.quantile(chartObj.dataObjects[cGroup].values, 0.75);
                 iqr = quartile3 - quartile1;
             }
-            return Math.round(2 * (iqr / Math.pow(chartObj.dataObjects[cGroup].values.length,1/3)))
+            return Math.max(Math.round(2 * (iqr / Math.pow(chartObj.dataObjects[cGroup].values.length,1/3))),50)
         };
 
-        function calculateViolinPlotValues() {
+        function prepareViolin() {
             /*
              * Takes the structured data and calculates the box plot numbers
              * */
 
-            var cGroup, cViolinPlot, width = chartObj.xScale.rangeBand()/3;
+            var cName;
+            for (cName in chartObj.dataObjects) {
+                chartObj.dataObjects[cName].violin = {};
+                chartObj.dataObjects[cName].violin.objs = {};
+                chartObj.dataObjects[cName].violin.histogramData = d3.layout.histogram()
+                    .bins(chartObj.violinPlots.calculateNumBins(cName))
+                    .frequency(1)(chartObj.dataObjects[cName].values);
+            }
 
-            for (cGroup in chartObj.dataObjects) {
-                chartObj.violinPlots.plots[cGroup] = {};
-                cViolinPlot = chartObj.violinPlots.plots[cGroup];
+            if (options && options.colors) {
+                chartObj.violinPlots.color = updateColorFunction(options.colors);
+            } else {
+                chartObj.violinPlots.color = colorFunct
+            }
+        }
+        prepareViolin();
 
-                cViolinPlot.histogramData = d3.layout.histogram()
-                    .bins(chartObj.violinPlots.calculateNumBins(cGroup))
-                    .frequency(1)(chartObj.dataObjects[cGroup].values);
+        chartObj.violinPlots.updateChart = function () {
+            var cName, cViolinPlot;
+
+            for (cName in chartObj.dataObjects) {
+                cViolinPlot = chartObj.dataObjects[cName].violin;
+
+                // Get the box size
+                var boxSize = {left:null, right:null, middle:null};
+                if (options && options.boxWidth) {
+                    boxSize = chartObj.updateBoxSize(options.boxWidth)
+                } else {
+                    boxSize = chartObj.updateBoxSize(100)
+                }
+                var leftBound = chartObj.xScale(cName) + boxSize.left;
+                var rightBound = chartObj.xScale(cName) + boxSize.right;
+                var width = (rightBound-leftBound)/2;
 
                 var xV = chartObj.yScale.copy();
-                xV.range([chartObj.height, 0]).nice();
-                var imposeMax = 0; // Should be able to set through options
                 var yV = d3.scale.linear()
                     .range([width, 0])
-                    .domain([0, Math.max(imposeMax, d3.max(cViolinPlot.histogramData, function(d) { return d.y; }))]);
-
-                cViolinPlot.area = d3.svg.area()
+                    .domain([0, Math.max(chartObj.range[1], d3.max(cViolinPlot.histogramData, function(d) { return d.y; }))])
+                    .clamp(true);
+                var area = d3.svg.area()
                     .interpolate('basis')
-                    .x(function(d) {return xV(d.x);})
+                    .x(function(d) { return xV(d.x);}) //Clips the  function above the chart max
                     .y0(width)
                     .y1(function(d) { return yV(d.y);});
 
-                cViolinPlot.line = d3.svg.line()
+                var line = d3.svg.line()
                     .interpolate('basis')
                     .x(function(d) { return xV(d.x);})
                     .y(function(d) { return yV(d.y);});
 
-                cViolinPlot.gPlus = chartObj.svg.append("g");
-                cViolinPlot.gMinus = chartObj.svg.append("g");
-
-                cViolinPlot.gPlus.append("path")
+                cViolinPlot.objs.left.area
                   .datum(cViolinPlot.histogramData)
-                  .attr("class", "area")
-                  .attr("d", cViolinPlot.area)
-                  .style("fill", color(cGroup));
+                  .attr("d", area);
 
-                cViolinPlot.gPlus.append("path")
+                cViolinPlot.objs.left.line
                   .datum(cViolinPlot.histogramData)
-                  .attr("class", "violin")
-                  .attr("d", cViolinPlot.line)
-                    .attr("fill",'none')
-                  .style("stroke", color(cGroup));
+                  .attr("d", line);
 
-                cViolinPlot.gMinus.append("path")
+                cViolinPlot.objs.right.area
                   .datum(cViolinPlot.histogramData)
-                  .attr("class", "area")
-                  .attr("d", cViolinPlot.area)
-                  .style("fill", color(cGroup));
+                  .attr("d", area);
 
-                cViolinPlot.gMinus.append("path")
+                cViolinPlot.objs.right.line
                   .datum(cViolinPlot.histogramData)
-                  .attr("class", "violin")
-                  .attr("d", cViolinPlot.line)
-                    .attr("fill",'none')
-                  .style("stroke", color(cGroup));
+                  .attr("d", line);
 
-                var rightBound = chartObj.xScale(cGroup) + (chartObj.xScale.rangeBand()-width/2);
-                var leftBound = chartObj.xScale(cGroup) + width/2;
+                cViolinPlot.objs.left.g.attr("transform", "rotate(90,0,0)   translate(0,-"+leftBound+")  scale(1,-1)");
+                cViolinPlot.objs.right.g.attr("transform", "rotate(90,0,0)  translate(0,-"+rightBound+")");
+        }};
 
-                cViolinPlot.gPlus.attr("transform", "rotate(90,0,0)  translate(0,-"+rightBound+")");
-                cViolinPlot.gMinus.attr("transform", "rotate(90,0,0)   translate(0,-"+leftBound+")  scale(1,-1)");
+        function mapObjects () {
+
+            var cName, cViolinPlot;
+
+            for (cName in chartObj.dataObjects) {
+                cViolinPlot = chartObj.dataObjects[cName].violin;
+
+                cViolinPlot.g = chartObj.svg.append("g").attr("class","violin");
+                cViolinPlot.objs.left = {area:null, line:null, g:null};
+                cViolinPlot.objs.right = {area:null, line:null, g:null};
+
+                cViolinPlot.objs.left.g = cViolinPlot.g.append("g");
+                cViolinPlot.objs.left.area = cViolinPlot.objs.left.g.append("path")
+                    .attr("class", "area")
+                    .style("fill", chartObj.violinPlots.color(cName));
+
+                cViolinPlot.objs.left.line = cViolinPlot.objs.left.g.append("path")
+                    .attr("class", "violin")
+                    .attr("fill", 'none')
+                    .style("stroke", chartObj.violinPlots.color(cName));
+
+                cViolinPlot.objs.right.g = cViolinPlot.g.append("g");
+                cViolinPlot.objs.right.area = cViolinPlot.objs.right.g.append("path")
+                    .attr("class", "area")
+                    .style("fill", chartObj.violinPlots.color(cName));
+
+                cViolinPlot.objs.right.line = cViolinPlot.objs.right.g.append("path")
+                    .attr("class", "violin")
+                    .attr("fill", 'none')
+                    .style("stroke", chartObj.violinPlots.color(cName));
             }
         }
-        calculateViolinPlotValues();
+        mapObjects();
 
+        d3.select(window).on('resize.' + chartObj.chartSelector+'.violinPlot', chartObj.violinPlots.updateChart);
+        //Update the divs with the proper values
+        chartObj.violinPlots.updateChart();
         return chartObj.violinPlots;
     };
 
     chartObj.renderBoxPlot = function(options) {
         chartObj.boxPlots = {};
-        chartObj.boxPlots.plots = {};
         /*
-        * options:
-        *   showOutliers: True/False (default True) - this shouldn't  affect the min/max
-        *   showWhiskers: True/False (default True)
-        *   whiskersRatio: (default standard=iqr*1.5), other options, minmax, (future?: std)
-        *   showBox: True/False (default True)
-        *   showMedian: True/False  (default True)
-        *   showMean: True/False (default False)
-        *   outlierScatter: True/False (default False) (not fully implimented)
+         * options:
+         *   showOutliers: True/False (default True) - this shouldn't  affect the min/max
+         *   showWhiskers: True/False (default True)
+         *   whiskersRatio: (default standard=iqr*1.5), other options, minmax, (future?: std)
+         *   showBox: True/False (default True)
+         *   showMedian: True/False  (default True)
+         *   showMean: True/False (default False)
+         *   outlierScatter: True/False (default False) (not fully implimented)
+         *   boxWidth (not implimented) what percent of the bin should the box take up
          */
 
-        // Boxplot Calculations
-        function calculateBoxPlotValues() {
-            /*
-             * Takes the structured data and calculates the box plot numbers
-             * */
-            var cGroup, cBoxPlotValues, cValues;
-
-            for (cGroup in chartObj.dataObjects) {
-                //chartObj.dataObjects[cGroup].boxPlot = {};
-                chartObj.boxPlots.plots[cGroup] = {};
-                cBoxPlot = chartObj.boxPlots.plots[cGroup];
-                cBoxPlot.objs = {}; // This contains the outliers and extremes for a box plot, it is separate from the values/divs because points have to be treated differently
-                cBoxPlot.sValues =  {}; // Will hold the scaled values
-                cBoxPlot.values = { //These are the original non–scaled values
-                    max: null,
-                    upperOuterFence: null,
-                    upperInnerFence: null,
-                    quartile3: null,
-                    median: null,
-                    mean: null,
-                    iqr: null,
-                    quartile1: null,
-                    lowerInnerFence: null,
-                    lowerOuterFence: null,
-                    min: null
-                };
-
-                cValues = chartObj.dataObjects[cGroup].values;
-
-                cBoxPlot.values.min = d3.min(cValues);
-                cBoxPlot.values.quartile1 = d3.quantile(cValues, 0.25);
-                cBoxPlot.values.median = d3.median(cValues);
-                cBoxPlot.values.mean = d3.mean(cValues);
-                cBoxPlot.values.quartile3 = d3.quantile(cValues, 0.75);
-                cBoxPlot.values.max = d3.max(cValues);
-
-                cBoxPlot.values.iqr = cBoxPlot.values.quartile3 - cBoxPlot.values.quartile1;
-
-                //The inner fences are the closest value to the IQR without going past it (assumes sorted lists)
-                if (!options || (options && (!options.whiskerRatio || options.whiskerRatio === "standard"))) {
-                    var LIF = cBoxPlot.values.quartile1 - (1.5 * cBoxPlot.values.iqr);
-                    var UIF = cBoxPlot.values.quartile3 + (1.5 * cBoxPlot.values.iqr);
-                    for (var i = 0; i <= cValues.length; i++) {
-                        if (cValues[i] < LIF) {continue;}
-                        if (!cBoxPlot.values.lowerInnerFence && cValues[i] >= LIF) {
-                            cBoxPlot.values.lowerInnerFence = cValues[i];
-                            continue;
-                        }
-                        if (cValues[i] > UIF) {
-                            cBoxPlot.values.upperInnerFence = cValues[i - 1];
-                            break;
-                        }
-                    }
-                }
-                cBoxPlot.values.lowerOuterFence = cBoxPlot.values.quartile1 - (3 * cBoxPlot.values.iqr);
-                cBoxPlot.values.upperOuterFence = cBoxPlot.values.quartile3 + (3 * cBoxPlot.values.iqr);
-                if (!cBoxPlot.values.lowerInnerFence) {cBoxPlot.values.lowerInnerFence = cBoxPlot.values.min;}
-                if (!cBoxPlot.values.upperInnerFence) {cBoxPlot.values.upperInnerFence = cBoxPlot.values.max;}
-            }
+        //Create boxPlots
+        for (var cName in chartObj.dataObjects) {
+            chartObj.dataObjects[cName].boxPlot = {};
+            chartObj.dataObjects[cName].boxPlot.objs = {};
         }
-        calculateBoxPlotValues();
-
-        function calculateBoxPlotOutliers() {
+        function calcOutliers(obj, values, metrics) {
             /*
-            * Create lists of the outliers for each content group
+             * Create lists of the outliers for each content group
              */
-            var cOutliers, cExtremes, cGroupValues, cBoxPlot, cOut, idx, cGroup;
 
-            for (cGroup in chartObj.boxPlots.plots)  {
-                cExtremes = [];
-                cOutliers = [];
-                cBoxPlot = chartObj.boxPlots.plots[cGroup];
-                cGroupValues = chartObj.dataObjects[cGroup].values;
-                for (idx = 0; idx <= cGroupValues.length; idx++) {
-                    // We need to store both the original and the scaled
-                    //  the original so we can rescale later
-                    //  the scaled to save some time later
-                    cOut = {value:cGroupValues[idx]};
+            var cExtremes = [];
+            var cOutliers = [];
+            var cOut, idx;
+            for (idx = 0; idx <= values.length; idx++) {
+                cOut = {value: values[idx]};
 
-                    if (cOut.value < cBoxPlot.values.lowerInnerFence) {
-                        if (cOut.value < cBoxPlot.values.lowerOuterFence) {
-                            cExtremes.push(cOut);
-                        } else {
-                            cOutliers.push(cOut);
-                        }
-                    } else if (cOut.value > cBoxPlot.values.upperInnerFence) {
-                        if (cOut.value > cBoxPlot.values.upperOuterFence) {
-                            cExtremes.push(cOut);
-                        } else {
-                            cOutliers.push(cOut);
-                        }
+                if (cOut.value < metrics.lowerInnerFence) {
+                    if (cOut.value < metrics.lowerOuterFence) {
+                        cExtremes.push(cOut);
+                    } else {
+                        cOutliers.push(cOut);
+                    }
+                } else if (cOut.value > metrics.upperInnerFence) {
+                    if (cOut.value > metrics.upperOuterFence) {
+                        cExtremes.push(cOut);
+                    } else {
+                        cOutliers.push(cOut);
                     }
                 }
-                cBoxPlot.objs.outliers = cOutliers;
-                cBoxPlot.objs.extremes = cExtremes;
+            }
+            obj.outliers = cOutliers;
+            obj.extremes = cExtremes;
+        }
 
-            }
-        }
         if (!options || (options && options.showOutliers !== false)) {
-            calculateBoxPlotOutliers();
-        } else {
-            // If we are not showing outliers, recalculate the max and min of the chart without them
-            var tempRangeValues = [];
-            for (cGroup in chartObj.boxPlots.plots) {
-                tempRangeValues.push(chartObj.boxPlots.plots[cGroup].values.lowerInnerFence);
-                tempRangeValues.push(chartObj.boxPlots.plots[cGroup].values.upperInnerFence);
+            for (var cName in chartObj.dataObjects) {
+                calcOutliers(chartObj.dataObjects[cName].boxPlot.objs, chartObj.dataObjects[cName].values, chartObj.dataObjects[cName].metrics);
             }
-            chartObj.range = d3.extent(tempRangeValues);
-            chartObj.yScale.domain(chartObj.range);
         }
+
+        if (options && options.colors) {
+            chartObj.boxPlots.colorFunct = updateColorFunction(options.colors);
+        } else {
+            chartObj.boxPlots.colorFunct = colorFunct
+        }
+
 
         chartObj.boxPlots.updateChart = function () {
             //Boxplot
-            var cGroup, cBoxPlot;
-            for (cGroup in chartObj.boxPlots.plots) {
-                cBoxPlot = chartObj.boxPlots.plots[cGroup];
-                var leftBound = chartObj.xScale(cGroup) + chartObj.xScale.rangeBand() / 3;
-                var rightBound = leftBound + chartObj.xScale.rangeBand() / 3;
-                var middle = chartObj.xScale(cGroup) + chartObj.xScale.rangeBand() / 2;
-                
-                for (var attr in cBoxPlot.values) {
-                    cBoxPlot.sValues[attr] = chartObj.yScale(cBoxPlot.values[attr]);
+            var cName, cBoxPlot;
+            for (cName in chartObj.dataObjects) {
+                cBoxPlot = chartObj.dataObjects[cName].boxPlot;
+
+                // Get the box size
+                var boxSize = {left: null, right: null, middle: null};
+                if (options && options.boxWidth) {
+                    boxSize = chartObj.updateBoxSize(options.boxWidth)
+                } else {
+                    boxSize = chartObj.updateBoxSize(30)
                 }
-                
+                var leftBound = chartObj.xScale(cName) + boxSize.left;
+                var rightBound = chartObj.xScale(cName) + boxSize.right;
+                var middle = chartObj.xScale(cName) + boxSize.middle;
+
+                var sMetrics = {}; //temp var for scaled (plottable) metric values
+                for (var attr in chartObj.dataObjects[cName].metrics) {
+                    sMetrics[attr] = null;
+                    sMetrics[attr] = chartObj.yScale(chartObj.dataObjects[cName].metrics[attr]);
+
+                }
+
                 //// Box
-                if (cBoxPlot.divs.box) {
-                    cBoxPlot.divs.box
+                if (cBoxPlot.objs.box) {
+                    cBoxPlot.objs.box
                         .attr("x", leftBound)
                         .attr('width', rightBound - leftBound)
-                        .attr("y", cBoxPlot.sValues.quartile3)
-                        .attr("rx",1)
-                        .attr("ry",1)
-                        .attr("height", -cBoxPlot.sValues.quartile3 + cBoxPlot.sValues.quartile1)
+                        .attr("y", sMetrics.quartile3)
+                        .attr("rx", 1)
+                        .attr("ry", 1)
+                        .attr("height", -sMetrics.quartile3 + sMetrics.quartile1)
                 }
                 //// Lines
-                if (cBoxPlot.divs.whiskers) {
-                    cBoxPlot.divs.whiskers.upperFence
+                if (cBoxPlot.objs.upperWhisker) {
+                    cBoxPlot.objs.upperWhisker.fence
                         .attr("x1", leftBound)
                         .attr("x2", rightBound)
-                        .attr('y1', cBoxPlot.sValues.upperInnerFence)
-                        .attr("y2", cBoxPlot.sValues.upperInnerFence);
-                    cBoxPlot.divs.whiskers.upperLine
+                        .attr('y1', sMetrics.upperInnerFence)
+                        .attr("y2", sMetrics.upperInnerFence);
+                    cBoxPlot.objs.upperWhisker.line
                         .attr("x1", middle)
                         .attr("x2", middle)
-                        .attr('y1', cBoxPlot.sValues.quartile3)
-                        .attr("y2", cBoxPlot.sValues.upperInnerFence);
+                        .attr('y1', sMetrics.quartile3)
+                        .attr("y2", sMetrics.upperInnerFence);
 
-                    cBoxPlot.divs.whiskers.lowerFence
+                    cBoxPlot.objs.lowerWhisker.fence
                         .attr("x1", leftBound)
                         .attr("x2", rightBound)
-                        .attr('y1', cBoxPlot.sValues.lowerInnerFence)
-                        .attr("y2", cBoxPlot.sValues.lowerInnerFence);
-                    cBoxPlot.divs.whiskers.lowerLine
+                        .attr('y1', sMetrics.lowerInnerFence)
+                        .attr("y2", sMetrics.lowerInnerFence);
+                    cBoxPlot.objs.lowerWhisker.line
                         .attr("x1", middle)
                         .attr("x2", middle)
-                        .attr('y1', cBoxPlot.sValues.quartile1)
-                        .attr("y2", cBoxPlot.sValues.lowerInnerFence);
+                        .attr('y1', sMetrics.quartile1)
+                        .attr("y2", sMetrics.lowerInnerFence);
                 }
                 //// Median
-                if (cBoxPlot.divs.median) {
-                    cBoxPlot.divs.median.line
+                if (cBoxPlot.objs.median) {
+                    cBoxPlot.objs.median.line
                         .attr("x1", leftBound)
                         .attr("x2", rightBound)
-                        .attr('y1', cBoxPlot.sValues.median)
-                        .attr("y2", cBoxPlot.sValues.median);
-                    cBoxPlot.divs.median.circle
+                        .attr('y1', sMetrics.median)
+                        .attr("y2", sMetrics.median);
+                    cBoxPlot.objs.median.circle
                         .attr("cx", middle)
-                        .attr("cy", cBoxPlot.sValues.median)
+                        .attr("cy", sMetrics.median)
                 }
 
                 //// Mean
-                if (cBoxPlot.divs.mean) {
-                    cBoxPlot.divs.mean.line
+                if (cBoxPlot.objs.mean) {
+                    cBoxPlot.objs.mean.line
                         .attr("x1", leftBound)
                         .attr("x2", rightBound)
-                        .attr('y1', cBoxPlot.sValues.mean)
-                        .attr("y2", cBoxPlot.sValues.mean);
-                    cBoxPlot.divs.mean.circle
+                        .attr('y1', sMetrics.mean)
+                        .attr("y2", sMetrics.mean);
+                    cBoxPlot.objs.mean.circle
                         .attr("cx", middle)
-                        .attr("cy", cBoxPlot.sValues.mean);
+                        .attr("cy", sMetrics.mean);
                 }
                 //// Outliers
                 var pt;
@@ -502,68 +596,60 @@ function makeDistroChart(dataset, xGroup, yValue) {
                 }
             }
         };
-
+        chartObj.boxPlots.tooltip = chartObj.mainDiv.append('div').attr('class', 'tooltip').style("opacity", 0);
         // Map everything to divs
-        var cGroup, cBoxPlot;
-        for (cGroup in  chartObj.boxPlots.plots) {
-            cBoxPlot = chartObj.boxPlots.plots[cGroup];
-            cBoxPlot.divs = {
-                box: null,
-                whiskers: null, /*{upperFence:null,  upperLine:null, lowerFence:null, lowerLine:null}*/
-                median: null,   /*{line:null, circle:null}*/
-                mean: null,     /*{line:null, circle:null}*/
-                outliers: null,
-                extremes: null
-            };
-            //cBoxPlot.values.leftBound = chartObj.xScale(cGroup) + chartObj.xScale.rangeBand() / 3;
-            //cBoxPlot.values.rightBound = cBoxPlot.values.leftBound + chartObj.xScale.rangeBand() / 3;
-            //cBoxPlot.values.middle = chartObj.xScale(cGroup) + chartObj.xScale.rangeBand() / 2;
+        var cName, cBoxPlot;
+        for (cName in  chartObj.dataObjects) {
+            cBoxPlot = chartObj.dataObjects[cName].boxPlot;
+
+            cBoxPlot.objs.g = chartObj.svg.append("g").attr("class", "boxplot");
 
             //Plot Box (default show)
             if (!options || (options && options.showBox !== false)) {
-                cBoxPlot.divs.box = chartObj.svg.append("rect")
+                cBoxPlot.objs.box = cBoxPlot.objs.g.append("rect")
                     .attr("class", "boxplot fill")
-                    .style("fill", color(cGroup));
+                    .style("fill", chartObj.boxPlots.colorFunct(cName));
             }
 
             //Plot Median (default show)
             if (!options || (options && options.showMedian !== false)) {
-                cBoxPlot.divs.median = {line:null, circle:null};
-                cBoxPlot.divs.median.line = chartObj.svg.append("line")
+                cBoxPlot.objs.median = {line: null, circle: null};
+                cBoxPlot.objs.median.line = cBoxPlot.objs.g.append("line")
                     .attr("class", "median");
-                cBoxPlot.divs.median.circle = chartObj.svg.append("circle")
+                cBoxPlot.objs.median.circle = cBoxPlot.objs.g.append("circle")
                     .attr("class", "median")
-                    .attr('r',3)
-                    .style("fill", color(cGroup));
+                    .attr('r', 3)
+                    .style("fill", chartObj.boxPlots.colorFunct(cName));
             }
 
             // Plot Mean (default no plot)
             if (options && options.showMean) {
-                cBoxPlot.divs.mean = {line:null, circle:null};
-                cBoxPlot.divs.mean.line = chartObj.svg.append("line")
+                cBoxPlot.objs.mean = {line: null, circle: null};
+                cBoxPlot.objs.mean.line = cBoxPlot.objs.g.append("line")
                     .attr("class", "mean");
-                cBoxPlot.divs.mean.circle = chartObj.svg.append("circle")
+                cBoxPlot.objs.mean.circle = cBoxPlot.objs.g.append("circle")
                     .attr("class", "mean")
-                    .attr('r',3)
-                    .style("fill", color(cGroup));
+                    .attr('r', 3)
+                    .style("fill", chartObj.boxPlots.colorFunct(cName));
             }
 
             //Plot Whiskers (default show)
             if (!options || (options && options.showWhiskers !== false)) {
-                cBoxPlot.divs.whiskers = {upperFence:null,  upperLine:null, lowerFence:null, lowerLine:null};
-                cBoxPlot.divs.whiskers.upperFence = chartObj.svg.append("line")
+                cBoxPlot.objs.upperWhisker = {fence: null, line: null};
+                cBoxPlot.objs.lowerWhisker = {fence: null, line: null};
+                cBoxPlot.objs.upperWhisker.fence = cBoxPlot.objs.g.append("line")
                     .attr("class", "upper whisker")
-                    .style("stroke", color(cGroup));
-                cBoxPlot.divs.whiskers.upperLine = chartObj.svg.append("line")
+                    .style("stroke", chartObj.boxPlots.colorFunct(cName));
+                cBoxPlot.objs.upperWhisker.line = cBoxPlot.objs.g.append("line")
                     .attr("class", "upper whisker")
-                    .style("stroke", color(cGroup));
+                    .style("stroke", chartObj.boxPlots.colorFunct(cName));
 
-                cBoxPlot.divs.whiskers.lowerFence = chartObj.svg.append("line")
+                cBoxPlot.objs.lowerWhisker.fence = cBoxPlot.objs.g.append("line")
                     .attr("class", "lower whisker")
-                    .style("stroke", color(cGroup));
-                cBoxPlot.divs.whiskers.lowerLine = chartObj.svg.append("line")
+                    .style("stroke", chartObj.boxPlots.colorFunct(cName));
+                cBoxPlot.objs.lowerWhisker.line = cBoxPlot.objs.g.append("line")
                     .attr("class", "lower whisker")
-                    .style("stroke", color(cGroup));
+                    .style("stroke", chartObj.boxPlots.colorFunct(cName));
             }
 
             // Plot outliers (default show)
@@ -572,31 +658,56 @@ function makeDistroChart(dataset, xGroup, yValue) {
             //    return Math.floor(Math.random() * range)-range/2;
             //}
             if (!options || (options && options.showOutliers !== false)) {
+
                 var pt;
                 if (cBoxPlot.objs.outliers.length) {
+                    var outDiv = cBoxPlot.objs.g.append("g").attr("class", "boxplot outliers");
                     for (pt in cBoxPlot.objs.outliers) {
-                         cBoxPlot.objs.outliers[pt].point = chartObj.svg.append("circle")
+                        cBoxPlot.objs.outliers[pt].point = outDiv.append("circle")
                             .attr("class", "outlier")
-                             .attr('r',2)
-                            .style("fill", color(cGroup));
+                            .attr('r', 2)
+                            .style("fill", chartObj.boxPlots.colorFunct(cName));
                     }
                 }
+
                 if (cBoxPlot.objs.extremes.length) {
+                    var extDiv = cBoxPlot.objs.g.append("g").attr("class", "boxplot extremes");
                     for (pt in cBoxPlot.objs.extremes) {
-                        cBoxPlot.objs.extremes[pt].point = chartObj.svg.append("circle")
+                        cBoxPlot.objs.extremes[pt].point = extDiv.append("circle")
                             .attr("class", "extreme")
-                            .attr('r',2)
-                            .style("stroke", color(cGroup));
+                            .attr('r', 2)
+                            .style("stroke", chartObj.boxPlots.colorFunct(cName));
                     }
                 }
             }
+            function move(name, metrics) {
+                var tooltipString = "Group: " + name;
+                tooltipString += "<br\>Max: "+formatAsFloat(metrics.max,0.1);
+                tooltipString += "<br\>Q3: "+formatAsFloat(metrics.quartile3);
+                tooltipString += "<br\>Median: "+formatAsFloat(metrics.median);
+                tooltipString += "<br\>Q1: "+formatAsFloat(metrics.quartile1);
+                tooltipString += "<br\>Min: "+formatAsFloat(metrics.min);
+                return function (){
+                    chartObj.boxPlots.tooltip.transition().duration(200).style("opacity", 0.9);
+                    chartObj.boxPlots.tooltip.html(tooltipString)
+                };
+            }
+
+            //Add mouseover
+            cBoxPlot.objs.g.on("mouseover", function () {
+                chartObj.boxPlots.tooltip.style("display", null);
+            }).on("mouseout", function () {
+                chartObj.boxPlots.tooltip.style("display", "none");
+            }).on("mousemove", move(cName, chartObj.dataObjects[cName].metrics))
 
         }
 
-        d3.select(window).on('resize.' + chartObj.chartSelector+'.boxPlot', chartObj.boxPlots.updateChart);
+        d3.select(window).on('resize.' + chartObj.chartSelector + '.boxPlot', chartObj.boxPlots.updateChart);
         //Update the divs with the proper values
         chartObj.boxPlots.updateChart();
+
         return chartObj.boxPlots;
+
     };
 
     return chartObj;

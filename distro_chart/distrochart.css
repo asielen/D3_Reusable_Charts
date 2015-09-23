@@ -2,8 +2,12 @@
     fill: none;
     stroke: black;
     stroke-width: 2px;
+    shape-rendering: geometricPrecision;
 }
 
+.chart-wrapper area {
+    shape-rendering: geometricPrecision;
+}
 .chart-wrapper circle {
     fill: black;
 
@@ -27,7 +31,7 @@
 }
 
 .chart-wrapper {
-    max-width: 650px;
+    max-width: 800px;
     min-width: 304px;
     margin: 8px auto;
     background-color: #FAF7F7;
@@ -35,7 +39,7 @@
 
 .chart-wrapper .inner-wrapper {
     position: relative;
-    padding-bottom: 50%;s
+    padding-bottom: 50%;
     width: 100%;
 }
 
@@ -111,7 +115,17 @@
     margin-right: 4px;
     margin-bottom: -0.16rem;
 }
-
+div.tooltip {
+    position: absolute;
+    text-align: left;
+    padding: 3px;
+    font: 8px sans-serif;
+    background: lightcyan;
+    border: 0px;
+    border-radius: 1px;
+    pointer-events: none;
+    opacity: 0.7;
+}
 
 @media (max-width:500px){
     .chart-wrapper .legend {font-size: 14px;}

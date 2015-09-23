@@ -12,19 +12,20 @@
 <div class="chart-wrapper" id="chart-distro1"></div>
 
 <script type="text/javascript">
-    d3.csv('pppdata.csv', function(error, data) {
+    d3.csv('basic-report.csv', function(error, data) {
         data.forEach(function (d) {
-            d.real_price = +d.real_price;
+            d.ppp_inf = +d.ppp_inf;
+            d.price_inf = +d.price_inf;
+            d.ppg_inf = +d.ppg_inf;
     });
 
-    var chart = makeDistroChart(data, 'theme_cat', 'real_price', {xAxis: 'Themes', yAxis: 'Prices'});
-    chart.bind("#chart-distro1",{scale: 'log', incOutliers: true});
+    var chart = makeDistroChart(data, 'year_released', 'price_inf', {xAxis: 'Years', yAxis: 'Prices'});
+    chart.bind("#chart-distro1",{scale: 'lin', constrainExtremes:true});
+    chart.renderViolinPlot({boxWidth:100});
+    chart.renderBoxPlot({boxWidth:5, showBox: true, showWhiskers: false, showMean: false, showOutliers:false, colors:["#333"]});
 
-    chart.renderBoxPlot({showBox: false, showWhiskers: false, showOutliers: false});
-        chart.renderViolinPlot();
+    });
 
-
-});
 </script>
 <script src="distrochart.js" charset="utf-8"></script>
 </body>

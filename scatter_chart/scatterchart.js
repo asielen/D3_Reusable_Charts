@@ -27,7 +27,7 @@ function scatterchart() {
     //Create SVG element
     var svg = d3.select("#chart").append("svg").attr("width", w).attr("height", h);
 
-    svg.selectAll("circle").histogramData(dataset).enter().append("circle").attr("cx", function (d) {
+    svg.selectAll("circle").data(dataset).enter().append("circle").attr("cx", function (d) {
             return xScale(d.piece_count);
         }).attr("cy", function (d) {
             return yScale(d.real_price);

@@ -27,12 +27,12 @@
             var color = d3.scale.category10()
             var dataset
             d3.csv('http://localhost:8000/lego/pppdata.csv', function(error, data) {
-                    histogramData.forEach(function(d) {
+                    data.forEach(function(d) {
                         d.piece_count = +d.piece_count;
                         d.real_ppp = +d.real_ppp;
                         d.real_price = +d.real_price
                   });
-                dataset = histogramData;
+                dataset = data;
                 console.log(dataset);
                 scatterchart();
             });
@@ -75,7 +75,7 @@
                             .attr("height", h);
 
                  svg.selectAll("circle")
-                   .histogramData(dataset)
+                   .data(dataset)
                    .enter()
                    .append("circle")
                     .attr("cx", function(d) {return xScale(d.piece_count);})
