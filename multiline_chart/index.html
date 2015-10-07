@@ -25,8 +25,8 @@
         'Variable B': {column: 'variableB'},
         'Variable C': {column: 'variableC'},
         'Variable D': {column: 'variableD'}
-    }, {xAxis: 'Years', yAxis: 'Amount'});
-    chart.bind("#chart-line1");
+    });
+    chart.bind({selector:"#chart-line1",chartSize:{height:500, width:960}, axisLabels: {xAxis:'Years', yAxis: 'Values'}});
     chart.render();
 
 });

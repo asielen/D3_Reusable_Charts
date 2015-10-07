@@ -271,9 +271,9 @@ svg .line {
 
         // Change chart size according to window size
         obj.update_svg_size = function () {
-            obj.width = parseInt(d3.select(obj.chartSelector).style("width"),10) - (obj.margin.left + obj.margin.right);
+            obj.width = parseInt(d3.select(obj.selector).style("width"),10) - (obj.margin.left + obj.margin.right);
 
-            obj.height = parseInt(d3.select(obj.chartSelector).style("height"),10) - (obj.margin.top + obj.margin.bottom);
+            obj.height = parseInt(d3.select(obj.selector).style("height"),10) - (obj.margin.top + obj.margin.bottom);
 
             /* Update the range of the scale with new width/height */
             obj.xScale.range([0, obj.width]);
@@ -298,7 +298,7 @@ svg .line {
 
             d3.selectAll(".focus.line").attr("y2", obj.height);
 
-            d3.select(obj.chartSelector).select('svg')
+            d3.select(obj.selector).select('svg')
                 .attr("width", obj.width + (obj.margin.left + obj.margin.right))
                 .attr("height", obj.height + (obj.margin.top + obj.margin.bottom));
 
@@ -308,14 +308,14 @@ svg .line {
             return obj;
         };
 
-        obj.chartSelector = ""
+        obj.selector = ""
 
         obj.bind = function (selector) {
             obj.mainSelector = selector; //Used for the  legened
             obj.mainDiv = d3.select(obj.mainSelector);
-            obj.chartSelector = selector+" .inner-box";
-            obj.chartDiv = d3.select(obj.chartSelector)
-            d3.select(window).on('resize.'+obj.chartSelector,obj.update_svg_size);
+            obj.selector = selector+" .inner-box";
+            obj.chartDiv = d3.select(obj.selector)
+            d3.select(window).on('resize.'+obj.selector,obj.update_svg_size);
             obj.update_svg_size();
             return obj;
         };
@@ -323,7 +323,7 @@ svg .line {
         // Render the chart
         obj.render = function () {
             //Create SVG element
-            obj.svg = d3.select(obj.chartSelector)
+            obj.svg = d3.select(obj.selector)
                 .append("svg")
                 .attr("class", "chart-area")
                 .attr("width", obj.width + (obj.margin.left + obj.margin.right))

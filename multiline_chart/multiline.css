@@ -1,7 +1,7 @@
 .chart-wrapper {
     max-width: 650px;
     min-width: 304px;
-    margin: 8px auto;
+    margin: 0  auto;
     background-color: #FAF7F7;
 }
 
@@ -61,6 +61,10 @@
 .chart-wrapper .legend > div {
     margin: 0px 25px 10px 0px;
     flex-grow: 0;
+    cursor: pointer;
+}
+.chart-wrapper .legend .series-marker:hover {
+    opacity: 0.8;
 }
 .chart-wrapper .legend p {
     display:inline;
@@ -83,23 +87,27 @@
   pointer-events: all;
 }
 
-.chart-wrapper .focus circle {
-  fill: crimson;
+.chart-wrapper .tooltip circle {
+  fill: black;
   stroke: crimson;
   stroke-width: 2px;
-  fill-opacity: 15%;
+  fill-opacity: 25%;
 }
-.chart-wrapper .focus rect {
-    fill: lightblue;
-    opacity: 0.4;
+.chart-wrapper .tooltip rect {
+    fill: #ecf0f4;
+    opacity: 0.7;
     border-radius: 2px;
 }
-.chart-wrapper .focus.line {
+.chart-wrapper .tooltip text {
+    font-size: 14px;
+}
+.chart-wrapper .tooltip .line {
     stroke: steelblue;
     stroke-dasharray: 2,5;
     stroke-width: 2;
     opacity: 0.5;
 }
+
 @media (max-width:500px){
     .chart-wrapper .line {stroke-width: 3px;}
     .chart-wrapper .legend {font-size: 14px;}

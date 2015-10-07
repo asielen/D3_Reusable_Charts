@@ -342,9 +342,9 @@ year,total_number,avg_of_pieces,unique_to_total,pieces_std&r
                 .attr("class", "outer-box")
                 .append("div")
                 .attr("class", "inner-box")
-            chartSelector = selector+" .inner-box";
-            obj.chartDiv = d3.select(chartSelector)
-            d3.select(window).on('resize.'+chartSelector,obj.update_svg_size);
+            selector = selector+" .inner-box";
+            obj.chartDiv = d3.select(selector)
+            d3.select(window).on('resize.'+selector,obj.update_svg_size);
             obj.update_svg_size();
             return obj;
         };

@@ -291,9 +291,9 @@ function makeDistroChart(dataset, xGroup, yValue) {
             .append("div").attr("class", "outer-box")
             .append("div").attr("class", "inner-box");
         // Capture the inner div for the chart (where the chart actually is)
-        chart.chartSelector = selector + " .inner-box";
-        chart.objs.chartDiv = d3.select(chart.chartSelector);
-        d3.select(window).on('resize.' + chart.chartSelector, chart.update);
+        chart.selector = selector + " .inner-box";
+        chart.objs.chartDiv = d3.select(chart.selector);
+        d3.select(window).on('resize.' + chart.selector, chart.update);
 
 
         // Create the svg
@@ -527,7 +527,7 @@ function makeDistroChart(dataset, xGroup, yValue) {
 
         mapObjects();
 
-        d3.select(window).on('resize.' + chart.chartSelector + '.violinPlot', chart.violinPlots.update);
+        d3.select(window).on('resize.' + chart.selector + '.violinPlot', chart.violinPlots.update);
         //Update the divs with the proper values
         chart.violinPlots.update();
         return chart.violinPlots;
@@ -805,7 +805,7 @@ function makeDistroChart(dataset, xGroup, yValue) {
 
         mapObjects();
 
-        d3.select(window).on('resize.' + chart.chartSelector + '.boxPlot', chart.boxPlots.update);
+        d3.select(window).on('resize.' + chart.selector + '.boxPlot', chart.boxPlots.update);
         //Update the divs with the proper values
         chart.boxPlots.update();
 
