@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title></title>
-    <!--http://stanford.edu/~mwaskom/software/seaborn/generated/seaborn.violinplot.html-->
     <link rel="stylesheet" type="text/css" href="distrochart.css">
     <!--<script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>-->
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
@@ -13,37 +12,30 @@
 
 <!--Sorry about all the inline JS. It is a quick way to show  what options are available-->
 <div class="chart-options">
-    <p>Box Options</p>
-    <button onclick="if(chart1.boxPlots.chartOptions.showBox){chart1.boxPlots.change({showBox:false})}else{chart1.boxPlots.change({showBox:true})}">Toggle Box</button>
-    <button onclick="if(chart1.boxPlots.chartOptions.boxWidth===30){chart1.boxPlots.change({boxWidth:10})}else{chart1.boxPlots.change({boxWidth:30})}">Change Box Width</button>
-    <button onclick="if(currentColor=='dark'){chart1.boxPlots.change({colors:d3.scale.category10()});currentColor='color';}else{chart1.boxPlots.change({colors:['#555']});currentColor='dark';}">Change Box Colors</button>
-    <button onclick="if(chart1.boxPlots.chartOptions.showMean){chart1.boxPlots.change({showMean:false})}else{chart1.boxPlots.change({showMean:true})}">Toggle Mean</button>
-    <button onclick="if(chart1.boxPlots.chartOptions.showMedian){chart1.boxPlots.change({showMedian:false})}else{chart1.boxPlots.change({showMedian:true})}">Toggle Median</button>
-    <button onclick="if(chart1.boxPlots.chartOptions.showWhiskers){chart1.boxPlots.change({showWhiskers:false})}else{chart1.boxPlots.change({showWhiskers:true})}">Toggle Whiskers</button>
-    <button onclick="if(chart1.boxPlots.chartOptions.showOutliers){chart1.boxPlots.change({showOutliers:false})}else{chart1.boxPlots.change({showOutliers:true})}">Toggle Outliers</button>
-</div>
-
-<div class="chart-options">
-    <p>Violin Options</p>
-    <button onclick="if(chart1.violinPlots.violinOptions.showArea){chart1.violinPlots.change({showArea:false, showLine:false});}else{chart1.violinPlots.change({showArea:true, showLine:true})}">Toggle Violin</button>
-    <button onclick="if(chart1.violinPlots.violinOptions.violinWidth===100){chart1.violinPlots.change({violinWidth:50})}else{chart1.violinPlots.change({violinWidth:100})}">Change Violin Width</button>
-    <button onclick="if(currentViolinColor=='dark'){chart1.violinPlots.change({colors:d3.scale.category10()});currentViolinColor='color';}else{chart1.violinPlots.change({colors:['#555']});currentViolinColor='dark';}">Change Violin Colors</button>
-    <button onclick="if(chart1.violinPlots.violinOptions.resolution===75){chart1.violinPlots.change({resolution:null})}else{chart1.violinPlots.change({resolution:75})}">Change Violin Resolution</button>
+    <p>Show: </p>
+    <button onclick="chart1.boxPlots.change({showBox:true,showOutliers:true,showWhiskers:true,boxWidth:30,lineWidth:null,colors:null,scatterOutliers:false});chart1.violinPlots.change({showViolinPlot:false});chart1.notchBoxes.change({showNotchBox:false})">Box Plot</button>
+    <button onclick="chart1.notchBoxes.change({showNotchBox:true});chart1.boxPlots.change({showBox:false,showOutliers:true,showWhiskers:true,boxWidth:20,lineWidth:null,colors:null,scatterOutliers:true});chart1.violinPlots.change({showViolinPlot:false})">Notched Box Plot</button>
+    <button onclick="chart1.violinPlots.change({showViolinPlot:true});chart1.boxPlots.change({showBox:true,showWhiskers:false,showOutliers:false,boxWidth:10,lineWidth:15,colors:['#555']});chart1.notchBoxes.change({showNotchBox:false})">Violin Plot</button>
 </div>
 
 <script type="text/javascript">
-    var currentColor = 'dark';
-    var currentViolinColor = 'dark';
     var chart1;
     d3.csv('data.csv', function(error, data) {
         data.forEach(function (d) {
             d.value = +d.value;
         });
 
-        chart1 = makeDistroChart(data, 'date', 'value');
-        chart1.bind("#chart-distro1",{chartSize:{height:420, width:960}, constrainExtremes:false, axisLabels: {xAxis: 'Years', yAxis: 'Values'}});
-        chart1.renderViolinPlot({violinWidth:90, colors:["#555"]});
-        chart1.renderBoxPlot({boxWidth:20, showOutliers:false});
+        chart1 = makeDistroChart({
+            data:data,
+            xName:'date',
+            yName:'value',
+            axisLabels: {xAxis: 'Years', yAxis: 'Values'},
+            selector:"#chart-distro1",
+            chartSize:{height:460, width:960},
+            constrainExtremes:false});
+        chart1.renderBoxPlot();
+        chart1.renderNotchBoxes({showNotchBox:false});
+        chart1.renderViolinPlot({showViolinPlot:false});
     });
 
 

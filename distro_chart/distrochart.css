@@ -63,6 +63,10 @@
 }
 
 /*Box Plot*/
+.chart-wrapper .box-plot .box {
+    fill-opacity: 0.4;
+    stroke-width: 2;
+}
 .chart-wrapper .box-plot line {
     stroke-width: 2px;
 }
@@ -99,8 +103,14 @@
 
 .chart-wrapper .violin-plot .line {
     fill: none;
-    stroke-width: 1px;
+    stroke-width: 2px;
     shape-rendering: geometricPrecision;
+}
+
+/*Notch Plot*/
+.chart-wrapper .notch-plot .notch {
+    fill-opacity: 0.4;
+    stroke-width: 2;
 }
 
 

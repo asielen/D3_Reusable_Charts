@@ -125,7 +125,7 @@ function makeLineChart(dataset, xName, yNames) {
             }
         }
 
-        d3.selectAll(".tooltip.line").attr("y2", chart.height);
+        chart.objs.tooltip.select('.line').attr("y2", chart.height);
 
         chart.objs.chartDiv.select('svg').attr("width", chart.width + (chart.margin.left + chart.margin.right)).attr("height", chart.height + (chart.margin.top + chart.margin.bottom));
 
