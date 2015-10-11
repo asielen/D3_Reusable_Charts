@@ -1,6 +1,6 @@
 /**
  * @fileOverview A D3 based distribution chart.
- * @version 2.0.0
+ * @version 2.0
  */
 
 
@@ -51,8 +51,6 @@ function makeDistroChart(settings) {
 
     chart.data = chart.settings.data;
 
-    //chart.xGroup = chart.settings.xName;
-    //chart.yValue = chart.settings.yName;
     chart.groupObjs = {}; //The data organized by grouping and sorted as well as any metadata for the groups
     chart.objs = {mainDiv: null, chartDiv: null, g: null, xAxis: null, yAxis: null};
     chart.colorFunct = null;
@@ -1028,6 +1026,154 @@ function makeDistroChart(settings) {
 
         d3.select(window).on('resize.' + chart.selector + '.notchBox', chart.notchBoxes.update);
         chart.notchBoxes.update();
+        return chart;
+    };
+
+    /**
+     * Render a raw data in various forms
+     * @param options
+     * @param [options.showpoints=false]
+     * @param [options.pointsScatter=false] Options: no scatter = (false or,'none); scatter points= (true or [amount=% of width (default=10)]); beeswarm points = ('beeswarm')
+     * @param [options.pointSize=6] Diameter not radius
+     * @param [options.showLine=['median']] Can equal any of the metrics lines
+     * @param [options.showbeanLines=false]
+     * @param [options.beanWidth=20] % width
+     * @param [options.colors=chart default]
+     * @returns {*} The chart object
+     *
+     */
+    chart.renderDataPlots = function (options) {
+        chart.dataPlots = {};
+
+
+        //Defaults
+        chart.dataPlots.options = {
+                            showPoints:false,
+                            pointsScatter:false,
+                            pointSize:6,
+                            showLine:['median'],
+                            showBeanLines:false,
+                            beanWidth:20,
+                            colors:null};
+        for (var option in options) {chart.dataPlots.options[option] = options[option]}
+        var dOpts = chart.dataPlots.options;
+
+        //Create notch objects
+        for (var cName in chart.groupObjs) {
+            chart.groupObjs[cName].dataPlots = {};
+            chart.groupObjs[cName].dataPlots.objs = {};
+        }
+        // The lines don't fit into a group bucket so they live under the dataPlot object
+        chart.dataPlots.objs = {};
+
+        chart.dataPlots.change = function () {
+
+        };
+
+        chart.dataPlots.update = function () {
+             var cName, cGroup, cPlot;
+
+            for (cName in chart.groupObjs) {
+                cGroup = chart.groupObjs[cName];
+                cPlot = cGroup.dataPlots;
+
+
+                if (cPlot.objs.points) {
+                    var objBounds = getObjWidth(100, cName);
+                    var yPtScale = chart.yScale.copy();
+                    yPtScale
+                        .range([Math.floor(chart.yScale.range()[0]/dOpts.pointSize),0])
+                        .interpolate(d3.interpolateRound)
+                        .domain(chart.yScale.domain());
+                    var maxWidth = Math.floor(chart.xScale.rangeBand()/dOpts.pointSize);
+                    var ptsObj = {};
+                    var cYBucket = null;
+                    var pt;
+                    for (pt = 0; pt<cGroup.values.length; pt++) {
+                        cYBucket = yPtScale(cGroup.values[pt]);
+                        if (ptsObj.hasOwnProperty(cYBucket)!==true) {ptsObj[cYBucket]=[];}
+                        ptsObj[cYBucket].push(cPlot.objs.points.pts[pt]
+                            .attr("cx", objBounds.middle)
+                            .attr("cy", yPtScale(cGroup.values[pt])*dOpts.pointSize));
+                    }
+
+                    var rightMax = Math.min(objBounds.right-dOpts.pointSize);
+                    for (var row in ptsObj) {
+                        var leftMin = objBounds.left+(Math.max((maxWidth - ptsObj[row].length)/2, 0)*dOpts.pointSize);
+                        console.log(maxWidth,ptsObj[row].length);
+                        var col = 0;
+                        for (pt in ptsObj[row]) {
+                            ptsObj[row][pt].attr("cx", Math.min(leftMin+col*dOpts.pointSize,rightMax)+dOpts.pointSize/2);
+                            col++
+                        }
+                    }
+
+                }
+
+
+
+                if (cPlot.objs.bean) {
+
+                    var beanBounds = getObjWidth(dOpts.beanWidth, cName);
+
+                    for (var pt = 0; pt<cGroup.values.length; pt++) {
+                        cPlot.objs.bean.lines[pt]
+                            .attr("x1", beanBounds.left)
+                            .attr("x2", beanBounds.right)
+                            .attr('y1', chart.yScale(cGroup.values[pt]))
+                            .attr("y2", chart.yScale(cGroup.values[pt]));
+                    }
+                }
+            }
+        };
+
+        chart.dataPlots.preparePlots = function () {
+            var cName, cPlot;
+
+            if (dOpts && dOpts.colors) {
+                chart.dataPlots.colorFunct = getColorFunct(dOpts.colors);
+            } else {
+                chart.dataPlots.colorFunct = chart.colorFunct
+            }
+
+            // Metrics lines
+            for (cName in chart.groupObjs) {
+
+                cPlot = chart.groupObjs[cName].dataPlots;
+                cPlot.objs.g = chart.groupObjs[cName].g.append("g").attr("class", "data-plot");
+
+                // Points Plot
+                if (dOpts.showPoints) {
+                    if (dOpts.pointsScatter=='beeswarm') {
+                        cPlot.objs.points = {g: null, pts: []};
+                        cPlot.objs.points.g = cPlot.objs.g.append("g").attr("class", "points-plot");
+                        for (var pt = 0; pt < chart.groupObjs[cName].values.length; pt++) {
+                            cPlot.objs.points.pts.push(cPlot.objs.points.g.append("circle")
+                                .attr("class", "point")
+                                .attr('r', dOpts.pointSize/2)
+                                .style("fill", chart.boxPlots.colorFunct(cName)));
+                        }
+                    }
+                }
+
+                // Bean lines
+                if (dOpts.showBeanLines) {
+                    cPlot.objs.bean = {g: null, lines: []};
+                    cPlot.objs.bean.g = cPlot.objs.g.append("g").attr("class", "bean-plot");
+                    for (var pt = 0; pt < chart.groupObjs[cName].values.length; pt++) {
+                    cPlot.objs.bean.lines.push(cPlot.objs.bean.g.append("line")
+                        .attr("class", "bean line")
+                        .style("stroke-width", '1')
+                        .style("stroke", chart.dataPlots.colorFunct(cName)));
+                    }
+                }
+            }
+
+        };
+        chart.dataPlots.preparePlots();
+
+        d3.select(window).on('resize.' + chart.selector + '.dataPlot', chart.dataPlots.update);
+        chart.dataPlots.update();
         return chart;
     };
 

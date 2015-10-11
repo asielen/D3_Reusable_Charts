@@ -34,6 +34,7 @@
             chartSize:{height:460, width:960},
             constrainExtremes:false});
         chart1.renderBoxPlot();
+        chart1.renderDataPlots({showBeanLines:false,showPoints:true,pointsScatter:'beeswarm'});
         chart1.renderNotchBoxes({showNotchBox:false});
         chart1.renderViolinPlot({showViolinPlot:false});
     });

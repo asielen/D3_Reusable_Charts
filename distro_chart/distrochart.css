@@ -113,6 +113,11 @@
     stroke-width: 2;
 }
 
+/* Point Plots*/
+.chart-wrapper .points-plot .point {
+    stroke: black;
+    stroke-width: 1px;
+}
 
 /* Non-Chart Styles for demo*/
 .chart-options  {
