@@ -113,7 +113,7 @@ function makeLineChart(dataset, xName, yNames) {
         chart.objs.axes.g.select('.y.axis').call(chart.objs.yAxis);
         chart.objs.axes.g.select('.y.axis .label').attr("x", -chart.height / 2);
 
-        /* Force D3 to recalculate and update the line */
+        /* Force D3 to recalculate and update the lines */
         for (var yName  in chart.groupObjs) {
             cY = chart.groupObjs[yName];
             if (cY.visible==true) {

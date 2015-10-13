@@ -119,6 +119,10 @@
     stroke-width: 1px;
 }
 
+.chart-wrapper .metrics-lines {
+    stroke-width: 4px;
+}
+
 /* Non-Chart Styles for demo*/
 .chart-options  {
     min-width: 200px;

@@ -1,6 +1,6 @@
 /**
- * @fileOverview A D3 based distribution chart.
- * @version 2.0
+ * @fileOverview A D3 based distribution chart system. Supports: Box plots, Violin plots, Notched box plots, trend lines, beeswarm plot
+ * @version 2.5
  */
 
 
@@ -14,7 +14,7 @@
  * @param [settings.axisLabels={}] Defaults to the xName and yName
  * @param [settings.scale='linear'] 'linear' or 'log' - y scale of the chart
  * @param [settings.chartSize={width:800, height:400}] The height and width of the chart itself (doesn't include the container)
- * @param [settings.margin={top: 15, right: 60, bottom: 30, left: 50}] The margins around the chart (inside the main div)
+ * @param [settings.margin={top: 15, right: 60, bottom: 40, left: 50}] The margins around the chart (inside the main div)
  * @param [settings.constrainExtremes=false] Should the y scale include outliers?
  * @returns {object} chart A chart object
  */
@@ -31,7 +31,7 @@ function makeDistroChart(settings) {
         axisLables: null,
         scale:'linear',
         chartSize:{width:800,height:400},
-        margin:{top: 15, right: 60, bottom: 35, left: 50},
+        margin:{top: 15, right: 60, bottom: 40, left: 50},
         constrainExtremes:false,
         color:d3.scale.category10()};
     for (var setting in settings) {chart.settings[setting] = settings[setting]}
@@ -98,6 +98,27 @@ function makeDistroChart(settings) {
         objSize.left = padding + gShift;
         objSize.right = objSize.left + width;
         return objSize;
+    }
+
+    /**
+     * Adds jitter to the  scatter point plot
+     * @param doJitter true or false, add jitter to the point
+     * @param width percent of the range band to cover with the jitter
+     * @returns {number}
+     */
+    function addJitter(doJitter, width) {
+            if (doJitter!==true || width==0) {return 0}
+            return Math.floor(Math.random() * width)-width/2;
+    }
+
+    function shallowCopy(oldObj) {
+        var newObj = {};
+        for(var i in oldObj) {
+            if(oldObj.hasOwnProperty(i)) {
+                newObj[i] = oldObj[i];
+            }
+        }
+        return newObj;
     }
 
     /**
@@ -244,7 +265,7 @@ function makeDistroChart(settings) {
         chart.colorFunct = getColorFunct(chart.settings.colors);
 
         // Build Scale functions
-        chart.yScale.range([chart.height, 0]).domain(chart.range).clamp(true);
+        chart.yScale.range([chart.height, 0]).domain(chart.range).nice().clamp(true);
         chart.xScale = d3.scale.ordinal().domain(Object.keys(chart.groupObjs)).rangeBands([0, chart.width]);
 
         //Build Axes Functions
@@ -359,13 +380,14 @@ function makeDistroChart(settings) {
         chart.violinPlots = {};
         //chart.violinPlots.plots = {};
 
-        // Defaults
-        chart.violinPlots.options = {
-            showViolin:true,
+        var defaultOptions = {
+            show:true,
+            showViolinPlot:true,
             resolution:null,
             width:65,
             interpolation:'basis-open',
             colors:chart.colorFunct};
+        chart.violinPlots.options  = shallowCopy(defaultOptions);
         for (var option in options) {chart.violinPlots.options[option] = options[option]}
         var vOpts = chart.violinPlots.options;
 
@@ -392,7 +414,7 @@ function makeDistroChart(settings) {
             }
             return Math.max(Math.round(2 * (iqr / Math.pow(chart.groupObjs[cName].values.length, 1 / 3))), 10)
         }
-
+        
         /**
          * Take a new set of options and redraw the violin
          * @param updateOptions
@@ -405,6 +427,20 @@ function makeDistroChart(settings) {
             chart.violinPlots.update()
         };
 
+        chart.violinPlots.reset = function () {chart.violinPlots.change(defaultOptions)};
+        chart.violinPlots.show = function (opts) {
+            if (opts!==undefined) {
+                opts.show=true;
+                if (opts.reset) {chart.violinPlots.reset()}
+            } else {opts = {show:true};}
+            chart.violinPlots.change(opts)};
+        chart.violinPlots.hide = function (opts) {
+            if (opts!==undefined) {
+                opts.show=false;
+                if (opts.reset) {chart.violinPlots.reset()}
+            } else {opts = {show:false};}
+            chart.violinPlots.change(opts)};
+        
         /**
          * Update the violin obj values
          */
@@ -479,7 +515,9 @@ function makeDistroChart(settings) {
             } else {
                 chart.violinPlots.color = chart.colorFunct
             }
-
+            
+            if (vOpts.show==false) {return}
+            
             for (cName in chart.groupObjs) {
                 cViolinPlot = chart.groupObjs[cName].violin;
 
@@ -523,7 +561,7 @@ function makeDistroChart(settings) {
     /**
      * Render a box plot on the current chart
      * @param options
-     * @param [options.showBoxPlot=true] Show all or no elements of the box plot
+     * @param [options.show=true] Toggle the whole plot on and off
      * @param [options.showBox=true] Show the box part of the box plot
      * @param [options.showWhiskers=true] Show the whiskers
      * @param [options.showMedian=true] Show the median line
@@ -534,7 +572,6 @@ function makeDistroChart(settings) {
      * @param [options.lineWidth=boxWidth] The max percent of the group rangeBand that the line can be
      * @param [options.outlierScatter=false] Spread out the outliers so they don't all overlap (in development)
      * @param [options.outlierCSize=2] Size of the outliers
-     * Todo: @param [options.whiskerRatio=iqr*1.5] Adjust the fences for the box plot
      * @param [options.colors=chart default] The color mapping for the box plot
      * @returns {*} The chart object
      */
@@ -542,8 +579,8 @@ function makeDistroChart(settings) {
         chart.boxPlots = {};
 
         // Defaults
-        chart.boxPlots.options = {
-            showBoxPlot:true,
+        var defaultOptions = {
+            show:true,
             showBox:true,
             showWhiskers:true,
             showMedian:true,
@@ -555,20 +592,16 @@ function makeDistroChart(settings) {
             scatterOutliers:false,
             outlierCSize:2.5,
             colors:chart.colorFunct};
+        chart.boxPlots.options = shallowCopy(defaultOptions);
         for (var option in options) {chart.boxPlots.options[option] = options[option]}
         var bOpts = chart.boxPlots.options;
-
+        
         //Create box plot objects
         for (var cName in chart.groupObjs) {
             chart.groupObjs[cName].boxPlot = {};
             chart.groupObjs[cName].boxPlot.objs = {};
         }
 
-        var scatter = function(scatterPoints, width) {
-            if (scatterPoints!==true) {return 0}
-            var range = width*0.4;
-            return Math.floor(Math.random() * range)-range/2;
-        };
 
         /**
          * Calculates all the outlier points for each group
@@ -621,7 +654,21 @@ function makeDistroChart(settings) {
             chart.boxPlots.prepareBoxPlot();
             chart.boxPlots.update()
         };
-
+        
+        chart.boxPlots.reset = function () {chart.boxPlots.change(defaultOptions)};
+        chart.boxPlots.show = function (opts) {
+            if (opts!==undefined) {
+                opts.show=true;
+                if (opts.reset) {chart.boxPlots.reset()}
+            } else {opts = {show:true};}
+            chart.boxPlots.change(opts)};
+        chart.boxPlots.hide = function (opts) {
+            if (opts!==undefined) {
+                opts.show=false;
+                if (opts.reset) {chart.boxPlots.reset()}
+            } else {opts = {show:false};}
+            chart.boxPlots.change(opts)};
+        
         /**
          * Update the box plot obj values
          */
@@ -714,14 +761,14 @@ function makeDistroChart(settings) {
                 if (cBoxPlot.objs.outliers) {
                     for (pt in cBoxPlot.objs.outliers) {
                         cBoxPlot.objs.outliers[pt].point
-                            .attr("cx", objBounds.middle+scatter(bOpts.scatterOutliers,width))
+                            .attr("cx", objBounds.middle+addJitter(bOpts.scatterOutliers,width))
                             .attr("cy", chart.yScale(cBoxPlot.objs.outliers[pt].value));
                     }
                 }
                 if (cBoxPlot.objs.extremes) {
                     for (pt in cBoxPlot.objs.extremes) {
                         cBoxPlot.objs.extremes[pt].point
-                            .attr("cx", objBounds.middle+scatter(bOpts.scatterOutliers,width))
+                            .attr("cx", objBounds.middle+addJitter(bOpts.scatterOutliers,width))
                             .attr("cy", chart.yScale(cBoxPlot.objs.extremes[pt].value));
                     }
                 }
@@ -739,13 +786,14 @@ function makeDistroChart(settings) {
             } else {
                 chart.boxPlots.colorFunct = chart.colorFunct
             }
-
+            
+            if (bOpts.show==false) {return}
+            
             for (cName in chart.groupObjs) {
                 cBoxPlot = chart.groupObjs[cName].boxPlot;
 
                 cBoxPlot.objs.g = chart.groupObjs[cName].g.append("g").attr("class", "box-plot");
 
-                if (bOpts.showBoxPlot==false) {return}
                 //Plot Box (default show)
                 if (bOpts.showBox) {
                     cBoxPlot.objs.box = cBoxPlot.objs.g.append("rect")
@@ -836,6 +884,7 @@ function makeDistroChart(settings) {
     /**
      * Render a notched box on the current chart
      * @param options
+     * @param [options.show=true] Toggle the whole plot on and off
      * @param [options.showNotchBox=true] Show the notch box
      * @param [options.showLines=false] Show lines at the confidence intervals
      * @param [options.boxWidth=35] The width of the widest part of the box
@@ -849,7 +898,8 @@ function makeDistroChart(settings) {
         chart.notchBoxes = {};
 
         //Defaults
-        chart.notchBoxes.options = {
+        var defaultOptions = {
+                            show:true,
                             showNotchBox:true,
                             showLines:false,
                             boxWidth:35,
@@ -857,6 +907,7 @@ function makeDistroChart(settings) {
                             lineWidth:50,
                             notchStyle:null,
                             colors:null};
+        chart.notchBoxes.options = shallowCopy(defaultOptions);
         for (var option in options) {chart.notchBoxes.options[option] = options[option]}
         var nOpts = chart.notchBoxes.options;
 
@@ -933,6 +984,20 @@ function makeDistroChart(settings) {
             chart.notchBoxes.update();
         };
 
+        chart.notchBoxes.reset = function () {chart.notchBoxes.change(defaultOptions)};
+        chart.notchBoxes.show = function (opts) {
+            if (opts!==undefined) {
+                opts.show=true;
+                if (opts.reset) {chart.notchBoxes.reset()}
+            } else {opts = {show:true};}
+            chart.notchBoxes.change(opts)};
+        chart.notchBoxes.hide = function (opts) {
+            if (opts!==undefined) {
+                opts.show=false;
+                if (opts.reset) {chart.notchBoxes.reset()}
+            } else {opts = {show:false};}
+            chart.notchBoxes.change(opts)};
+        
         /**
          * Update the notch box obj values
          */
@@ -994,7 +1059,9 @@ function makeDistroChart(settings) {
             } else {
                 chart.notchBoxes.colorFunct = chart.colorFunct
             }
-
+    
+            if (nOpts.show==false) {return}
+            
             for (cName in chart.groupObjs) {
                 cNotch = chart.groupObjs[cName].notchBox;
 
@@ -1032,11 +1099,12 @@ function makeDistroChart(settings) {
     /**
      * Render a raw data in various forms
      * @param options
-     * @param [options.showpoints=false]
-     * @param [options.pointsScatter=false] Options: no scatter = (false or,'none); scatter points= (true or [amount=% of width (default=10)]); beeswarm points = ('beeswarm')
-     * @param [options.pointSize=6] Diameter not radius
-     * @param [options.showLine=['median']] Can equal any of the metrics lines
-     * @param [options.showbeanLines=false]
+     * @param [options.show=true] Toggle the whole plot on and off
+     * @param [options.showPlot=false] True or false, show points
+     * @param [options.plotType='none'] Options: no scatter = (false or 'none'); scatter points= (true or [amount=% of width (default=10)]); beeswarm points = ('beeswarm')
+     * @param [options.pointSize=6] Diameter of the circle in pizels (not the radius)
+     * @param [options.showLines=['median']] Can equal any of the metrics lines
+     * @param [options.showbeanLines=false] Options: no lines = false
      * @param [options.beanWidth=20] % width
      * @param [options.colors=chart default]
      * @returns {*} The chart object
@@ -1047,14 +1115,16 @@ function makeDistroChart(settings) {
 
 
         //Defaults
-        chart.dataPlots.options = {
-                            showPoints:false,
-                            pointsScatter:false,
+        var defaultOptions = {
+                            show:true,
+                            showPlot:false,
+                            plotType:'none',
                             pointSize:6,
-                            showLine:['median'],
+                            showLines:false,//['median'],
                             showBeanLines:false,
                             beanWidth:20,
                             colors:null};
+        chart.dataPlots.options = shallowCopy(defaultOptions)
         for (var option in options) {chart.dataPlots.options[option] = options[option]}
         var dOpts = chart.dataPlots.options;
 
@@ -1066,56 +1136,107 @@ function makeDistroChart(settings) {
         // The lines don't fit into a group bucket so they live under the dataPlot object
         chart.dataPlots.objs = {};
 
-        chart.dataPlots.change = function () {
+        /**
+         * Take updated options and redraw the data plots
+         * @param updateOptions
+         */
+        chart.dataPlots.change = function (updateOptions) {
+            if (updateOptions) {for (var key in updateOptions) {dOpts[key] = updateOptions[key]}}
 
+            chart.dataPlots.objs.g.remove();
+            for (var cName in chart.groupObjs) {chart.groupObjs[cName].dataPlots.objs.g.remove()}
+            chart.dataPlots.preparePlots();
+            chart.dataPlots.update()
         };
-
+        
+        chart.dataPlots.reset = function () {chart.dataPlots.change(defaultOptions)};
+        chart.dataPlots.show = function (opts) {
+            if (opts!==undefined) {
+                opts.show=true;
+                if (opts.reset) {chart.dataPlots.reset()}
+            } else {opts = {show:true};}
+            chart.dataPlots.change(opts)};
+        chart.dataPlots.hide = function (opts) {
+            if (opts!==undefined) {
+                opts.show=false;
+                if (opts.reset) {chart.dataPlots.reset()}
+            } else {opts = {show:false};}
+            chart.dataPlots.change(opts)};
+        
+        /**
+         * Update the data plot obj values
+         */
         chart.dataPlots.update = function () {
-             var cName, cGroup, cPlot;
+            var cName, cGroup, cPlot;
+
+            // Metrics lines
+            if (chart.dataPlots.objs.g) {
+                var halfBand = chart.xScale.rangeBand()/2; // find the middle of each band
+                for (var cMetric in chart.dataPlots.objs.lines) {
+                    chart.dataPlots.objs.lines[cMetric].line
+                        .x(function (d) {return chart.xScale(d.x)+halfBand});
+                    chart.dataPlots.objs.lines[cMetric].g
+                        .datum(chart.dataPlots.objs.lines[cMetric].values)
+                        .attr('d',chart.dataPlots.objs.lines[cMetric].line);
+                }
+            }
+
 
             for (cName in chart.groupObjs) {
                 cGroup = chart.groupObjs[cName];
                 cPlot = cGroup.dataPlots;
 
-
                 if (cPlot.objs.points) {
-                    var objBounds = getObjWidth(100, cName);
-                    var yPtScale = chart.yScale.copy();
-                    yPtScale
-                        .range([Math.floor(chart.yScale.range()[0]/dOpts.pointSize),0])
-                        .interpolate(d3.interpolateRound)
-                        .domain(chart.yScale.domain());
-                    var maxWidth = Math.floor(chart.xScale.rangeBand()/dOpts.pointSize);
-                    var ptsObj = {};
-                    var cYBucket = null;
-                    var pt;
-                    for (pt = 0; pt<cGroup.values.length; pt++) {
-                        cYBucket = yPtScale(cGroup.values[pt]);
-                        if (ptsObj.hasOwnProperty(cYBucket)!==true) {ptsObj[cYBucket]=[];}
-                        ptsObj[cYBucket].push(cPlot.objs.points.pts[pt]
-                            .attr("cx", objBounds.middle)
-                            .attr("cy", yPtScale(cGroup.values[pt])*dOpts.pointSize));
-                    }
+                    if (dOpts.plotType=='beeswarm') {
+                        var swarmBounds = getObjWidth(100, cName);
+                        var yPtScale = chart.yScale.copy()
+                            .range([Math.floor(chart.yScale.range()[0]/dOpts.pointSize),0])
+                            .interpolate(d3.interpolateRound)
+                            .domain(chart.yScale.domain());
+                        var maxWidth = Math.floor(chart.xScale.rangeBand()/dOpts.pointSize);
+                        var ptsObj = {};
+                        var cYBucket = null;
+                        //  Bucket points
+                        for (var pt = 0; pt<cGroup.values.length; pt++) {
+                            cYBucket = yPtScale(cGroup.values[pt]);
+                            if (ptsObj.hasOwnProperty(cYBucket)!==true) {ptsObj[cYBucket]=[];}
+                            ptsObj[cYBucket].push(cPlot.objs.points.pts[pt]
+                                .attr("cx", swarmBounds.middle)
+                                .attr("cy", yPtScale(cGroup.values[pt])*dOpts.pointSize));
+                        }
+                        //  Plot buckets
+                        var rightMax = Math.min(swarmBounds.right-dOpts.pointSize);
+                        for (var row in ptsObj) {
+                            var leftMin = swarmBounds.left+(Math.max((maxWidth - ptsObj[row].length)/2, 0)*dOpts.pointSize);
+                            var col = 0;
+                            for (pt in ptsObj[row]) {
+                                ptsObj[row][pt].attr("cx", Math.min(leftMin+col*dOpts.pointSize,rightMax)+dOpts.pointSize/2);
+                                col++
+                            }
+                        }
+                    } else { // For scatter points and points with no scatter
+                        var plotBounds = null,
+                            scatterWidth=0,
+                            width= 0;
+                        if (dOpts.plotType=='scatter' || typeof dOpts.plotType=='number') {
+                            //Default scatter percentage is 20% of box width
+                            scatterWidth = typeof dOpts.plotType == 'number' ? dOpts.plotType : 20;
+                        }
 
-                    var rightMax = Math.min(objBounds.right-dOpts.pointSize);
-                    for (var row in ptsObj) {
-                        var leftMin = objBounds.left+(Math.max((maxWidth - ptsObj[row].length)/2, 0)*dOpts.pointSize);
-                        console.log(maxWidth,ptsObj[row].length);
-                        var col = 0;
-                        for (pt in ptsObj[row]) {
-                            ptsObj[row][pt].attr("cx", Math.min(leftMin+col*dOpts.pointSize,rightMax)+dOpts.pointSize/2);
-                            col++
+                        plotBounds = getObjWidth(scatterWidth, cName);
+                        width = plotBounds.right - plotBounds.left;
+
+                        for (var pt = 0; pt<cGroup.values.length; pt++) {
+                            cPlot.objs.points.pts[pt]
+                                .attr("cx", plotBounds.middle+addJitter(true,width))
+                                .attr("cy", chart.yScale(cGroup.values[pt]));
                         }
                     }
-
                 }
 
 
-
                 if (cPlot.objs.bean) {
-
                     var beanBounds = getObjWidth(dOpts.beanWidth, cName);
-
                     for (var pt = 0; pt<cGroup.values.length; pt++) {
                         cPlot.objs.bean.lines[pt]
                             .attr("x1", beanBounds.left)
@@ -1127,6 +1248,9 @@ function makeDistroChart(settings) {
             }
         };
 
+        /**
+         * Create the svg elements for the data plots
+         */
         chart.dataPlots.preparePlots = function () {
             var cName, cPlot;
 
@@ -1135,26 +1259,51 @@ function makeDistroChart(settings) {
             } else {
                 chart.dataPlots.colorFunct = chart.colorFunct
             }
+            
+            if (dOpts.show==false) {return}
 
             // Metrics lines
+            chart.dataPlots.objs.g = chart.objs.g.append("g").attr("class", "metrics-lines");
+            if (dOpts.showLines && dOpts.showLines.length > 0) {
+                chart.dataPlots.objs.lines = {};
+                var cMetric;
+                for (var line in dOpts.showLines) {
+                    cMetric = dOpts.showLines[line];
+                    chart.dataPlots.objs.lines[cMetric] = {};
+                    chart.dataPlots.objs.lines[cMetric].values = [];
+                    for (var cGroup in chart.groupObjs) {
+                        chart.dataPlots.objs.lines[cMetric].values.push({x:cGroup, y:chart.groupObjs[cGroup].metrics[cMetric]})
+                    }
+                    chart.dataPlots.objs.lines[cMetric].line = d3.svg.line()
+                        .interpolate("cardinal")
+                        .y(function (d) {return chart.yScale(d.y)});
+                    chart.dataPlots.objs.lines[cMetric].g = chart.dataPlots.objs.g.append("path")
+                        .attr("class", "line "+cMetric)
+                        .attr("data-metric", cMetric)
+                        .style("fill", 'none')
+                        .style("stroke", chart.colorFunct(cMetric));
+                }
+
+            }
+
+
             for (cName in chart.groupObjs) {
 
                 cPlot = chart.groupObjs[cName].dataPlots;
                 cPlot.objs.g = chart.groupObjs[cName].g.append("g").attr("class", "data-plot");
 
                 // Points Plot
-                if (dOpts.showPoints) {
-                    if (dOpts.pointsScatter=='beeswarm') {
-                        cPlot.objs.points = {g: null, pts: []};
-                        cPlot.objs.points.g = cPlot.objs.g.append("g").attr("class", "points-plot");
-                        for (var pt = 0; pt < chart.groupObjs[cName].values.length; pt++) {
-                            cPlot.objs.points.pts.push(cPlot.objs.points.g.append("circle")
-                                .attr("class", "point")
-                                .attr('r', dOpts.pointSize/2)
-                                .style("fill", chart.boxPlots.colorFunct(cName)));
-                        }
+                if (dOpts.showPlot) {
+                    cPlot.objs.points = {g: null, pts: []};
+                    cPlot.objs.points.g = cPlot.objs.g.append("g").attr("class", "points-plot");
+                    for (var pt = 0; pt < chart.groupObjs[cName].values.length; pt++) {
+                        cPlot.objs.points.pts.push(cPlot.objs.points.g.append("circle")
+                            .attr("class", "point")
+                            .attr('r', dOpts.pointSize/2)// Options is diameter, r takes radius so divide by 2
+                            .style("fill", chart.dataPlots.colorFunct(cName)));
                     }
                 }
+
 
                 // Bean lines
                 if (dOpts.showBeanLines) {

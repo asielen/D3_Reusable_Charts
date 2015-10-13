@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title></title>
     <link rel="stylesheet" type="text/css" href="distrochart.css">
-    <!--<script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>-->
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 </head>
 <body>
@@ -13,11 +12,17 @@
 <!--Sorry about all the inline JS. It is a quick way to show  what options are available-->
 <div class="chart-options">
     <p>Show: </p>
-    <button onclick="chart1.boxPlots.change({showBox:true,showOutliers:true,showWhiskers:true,boxWidth:30,lineWidth:null,colors:null,scatterOutliers:false});chart1.violinPlots.change({showViolinPlot:false});chart1.notchBoxes.change({showNotchBox:false})">Box Plot</button>
-    <button onclick="chart1.notchBoxes.change({showNotchBox:true});chart1.boxPlots.change({showBox:false,showOutliers:true,showWhiskers:true,boxWidth:20,lineWidth:null,colors:null,scatterOutliers:true});chart1.violinPlots.change({showViolinPlot:false})">Notched Box Plot</button>
-    <button onclick="chart1.violinPlots.change({showViolinPlot:true});chart1.boxPlots.change({showBox:true,showWhiskers:false,showOutliers:false,boxWidth:10,lineWidth:15,colors:['#555']});chart1.notchBoxes.change({showNotchBox:false})">Violin Plot</button>
+    <button onclick="chart1.boxPlots.show({reset:true});chart1.violinPlots.hide();chart1.notchBoxes.hide();chart1.dataPlots.change({showPlot:false,showBeanLines:false})">Box Plot</button>
+    <button onclick="chart1.notchBoxes.show({reset:true});chart1.boxPlots.show({reset:true, showBox:false,showOutliers:true,boxWidth:20,scatterOutliers:true});chart1.violinPlots.hide();chart1.dataPlots.change({showPlot:false,showBeanLines:false})">Notched Box Plot</button>
+    <button onclick="chart1.violinPlots.show({reset:true, resolution:12});chart1.boxPlots.show({reset:true, showWhiskers:false,showOutliers:false,boxWidth:10,lineWidth:15,colors:['#555']});chart1.notchBoxes.hide();chart1.dataPlots.change({showPlot:false,showBeanLines:false})">Violin Plot</button>
+    <button onclick="chart1.violinPlots.show({reset:true, width:100, resolution:12});chart1.dataPlots.show({showBeanLines:true,beanWidth:15,showPlot:false,colors:['#555']});chart1.boxPlots.hide();chart1.notchBoxes.hide()">Bean Plot</button>
+    <button onclick="chart1.dataPlots.show({showPlot:true, plotType:'beeswarm',showBeanLines:false, colors:null});chart1.violinPlots.hide();chart1.notchBoxes.hide();chart1.boxPlots.hide();">Beeswarm Plot</button>
+    <button onclick="chart1.dataPlots.show({showPlot:true, plotType:40, showBeanLines:false,colors:null});chart1.violinPlots.hide();chart1.notchBoxes.hide();chart1.boxPlots.hide();">Scatter Plot</button>
+    <button onclick="if(chart1.dataPlots.options.showLines){chart1.dataPlots.change({showLines:false});} else {chart1.dataPlots.change({showLines:['median','quartile1','quartile3']});}">Trend Lines</button>
 </div>
 
+
+<script src="distrochart.js" charset="utf-8"></script>
 <script type="text/javascript">
     var chart1;
     d3.csv('data.csv', function(error, data) {
@@ -32,15 +37,12 @@
             axisLabels: {xAxis: 'Years', yAxis: 'Values'},
             selector:"#chart-distro1",
             chartSize:{height:460, width:960},
-            constrainExtremes:false});
+            constrainExtremes:true});
         chart1.renderBoxPlot();
-        chart1.renderDataPlots({showBeanLines:false,showPoints:true,pointsScatter:'beeswarm'});
+        chart1.renderDataPlots();
         chart1.renderNotchBoxes({showNotchBox:false});
         chart1.renderViolinPlot({showViolinPlot:false});
     });
-
-
 </script>
-<script src="distrochart.js" charset="utf-8"></script>
 </body>
 </html>
