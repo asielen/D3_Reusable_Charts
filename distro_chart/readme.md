@@ -15,4 +15,8 @@ Features:
   * Notch style (traditional angled vs 90 degree cutouts)
   * Violin resolution and interpolation
 
-Previous version: [Reusable Violin + Box Plot](http://bl.ocks.org/asielen/d15a4f16fa618273e10f)
+Updated in V3
+- Support for clamping the ViolinPlot or forcing it to extend beyond the normal range to create a closed Violin
+- New option to adjust the number of y axis ticks
+
+Previous version: [Reusable Violin + Box Plot V2](http://bl.ocks.org/asielen/1a5e8d77ae8feb464167)

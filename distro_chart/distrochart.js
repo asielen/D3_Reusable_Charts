@@ -1,6 +1,6 @@
 /**
  * @fileOverview A D3 based distribution chart system. Supports: Box plots, Violin plots, Notched box plots, trend lines, beeswarm plot
- * @version 2.5
+ * @version 3.0
  */
 
 
@@ -12,6 +12,7 @@
  * @param settings.yName The name of the column used for the y values
  * @param {string} settings.selector The selector string for the main chart div
  * @param [settings.axisLabels={}] Defaults to the xName and yName
+ * @param [settings.yTicks = 1] 1 = default ticks. 2 =  double, 0.5 = half
  * @param [settings.scale='linear'] 'linear' or 'log' - y scale of the chart
  * @param [settings.chartSize={width:800, height:400}] The height and width of the chart itself (doesn't include the container)
  * @param [settings.margin={top: 15, right: 60, bottom: 40, left: 50}] The margins around the chart (inside the main div)
@@ -29,12 +30,16 @@ function makeDistroChart(settings) {
         yName: null,
         selector: null,
         axisLables: null,
-        scale:'linear',
-        chartSize:{width:800,height:400},
-        margin:{top: 15, right: 60, bottom: 40, left: 50},
-        constrainExtremes:false,
-        color:d3.scale.category10()};
-    for (var setting in settings) {chart.settings[setting] = settings[setting]}
+        yTicks: 1,
+        scale: 'linear',
+        chartSize: {width: 800, height: 400},
+        margin: {top: 15, right: 60, bottom: 40, left: 50},
+        constrainExtremes: false,
+        color: d3.scale.category10()
+    };
+    for (var setting in settings) {
+        chart.settings[setting] = settings[setting]
+    }
 
     function formatAsFloat(d) {
         if (d % 1 !== 0) {
@@ -43,10 +48,12 @@ function makeDistroChart(settings) {
             return d3.format(".0f")(d);
         }
     }
+
     function logFormatNumber(d) {
         var x = Math.log(d) / Math.log(10) + 1e-6;
         return Math.abs(x - Math.floor(x)) < 0.6 ? formatAsFloat(d) : "";
     }
+
     chart.yFormatter = formatAsFloat;
 
     chart.data = chart.settings.data;
@@ -107,14 +114,16 @@ function makeDistroChart(settings) {
      * @returns {number}
      */
     function addJitter(doJitter, width) {
-            if (doJitter!==true || width==0) {return 0}
-            return Math.floor(Math.random() * width)-width/2;
+        if (doJitter !== true || width == 0) {
+            return 0
+        }
+        return Math.floor(Math.random() * width) - width / 2;
     }
 
     function shallowCopy(oldObj) {
         var newObj = {};
-        for(var i in oldObj) {
-            if(oldObj.hasOwnProperty(i)) {
+        for (var i in oldObj) {
+            if (oldObj.hasOwnProperty(i)) {
                 newObj[i] = oldObj[i];
             }
         }
@@ -146,7 +155,7 @@ function makeDistroChart(settings) {
     !function prepareData() {
         function calcMetrics(values) {
 
-            var metrics = { //These are the original non–scaled values
+            var metrics = { //These are the original nonï¿½scaled values
                 max: null,
                 upperOuterFence: null,
                 upperInnerFence: null,
@@ -257,9 +266,7 @@ function makeDistroChart(settings) {
             chart.range = d3.extent(fences);
 
         } else {
-            chart.range = d3.extent(chart.data, function (d) {
-                return d[chart.settings.yName];
-            });
+            chart.range = d3.extent(chart.data, function (d) {return d[chart.settings.yName];});
         }
 
         chart.colorFunct = getColorFunct(chart.settings.colors);
@@ -275,6 +282,7 @@ function makeDistroChart(settings) {
             .tickFormat(chart.yFormatter)
             .outerTickSize(0)
             .innerTickSize(-chart.width + (chart.margin.right + chart.margin.left));
+        chart.objs.yAxis.ticks(chart.objs.yAxis.ticks()*chart.settings.yTicks);
         chart.objs.xAxis = d3.svg.axis().scale(chart.xScale).orient("bottom").tickSize(5);
     }();
 
@@ -290,6 +298,13 @@ function makeDistroChart(settings) {
         // Update scale functions
         chart.xScale.rangeBands([0, chart.width]);
         chart.yScale.range([chart.height, 0]);
+
+        // Update the yDomain if the Violin plot clamp is set to -1 meaning it will extend the violins to make nice points
+        if (chart.violinPlots && chart.violinPlots.options.show == true && chart.violinPlots.options._yDomainVP != null) {
+            chart.yScale.domain(chart.violinPlots.options._yDomainVP).nice().clamp(true);
+        } else {
+            chart.yScale.domain(chart.range).nice().clamp(true);
+        }
 
         //Update axes
         chart.objs.g.select('.x.axis').attr("transform", "translate(0," + chart.height + ")").call(chart.objs.xAxis)
@@ -370,77 +385,91 @@ function makeDistroChart(settings) {
      * Render a violin plot on the current chart
      * @param options
      * @param [options.showViolinPlot=true] True or False, show the violin plot
-     * @param [options.resolution=calculated based on values]
-     * @param [options.width=90] The max percent of the group rangeBand that the violin can be
+     * @param [options.resolution=100 default]
+     * @param [options.bandwidth=10 default] May need higher bandwidth for larger data sets
+     * @param [options.width=50] The max percent of the group rangeBand that the violin can be
      * @param [options.interpolation=''] How to render the violin
+     * @param [options.clamp=0 default]
+     *   0 = keep data within chart min and max, clamp once data = 0. May extend beyond data set min and max
+     *   1 = clamp at min and max of data set. Possibly no tails
+     *  -1 = extend chart axis to make room for data to interpolate to 0. May extend axis and data set min and max
      * @param [options.colors=chart default] The color mapping for the violin plot
      * @returns {*} The chart object
      */
     chart.renderViolinPlot = function (options) {
         chart.violinPlots = {};
-        //chart.violinPlots.plots = {};
 
         var defaultOptions = {
-            show:true,
-            showViolinPlot:true,
-            resolution:null,
-            width:65,
-            interpolation:'basis-open',
-            colors:chart.colorFunct};
-        chart.violinPlots.options  = shallowCopy(defaultOptions);
-        for (var option in options) {chart.violinPlots.options[option] = options[option]}
+            show: true,
+            showViolinPlot: true,
+            resolution: 100,
+            bandwidth: 20,
+            width: 50,
+            interpolation: 'cardinal',
+            clamp: 1,
+            colors: chart.colorFunct,
+            _yDomainVP: null // If the Violin plot is set to close all violin plots, it may need to extend the domain, that extended domain is stored here
+        };
+        chart.violinPlots.options = shallowCopy(defaultOptions);
+        for (var option in options) {
+            chart.violinPlots.options[option] = options[option]
+        }
         var vOpts = chart.violinPlots.options;
 
         // Create violin plot objects
         for (var cName in chart.groupObjs) {
             chart.groupObjs[cName].violin = {};
             chart.groupObjs[cName].violin.objs = {};
-            chart.groupObjs[cName].violin.histogramFunct = d3.layout.histogram().frequency(1);
         }
 
-        /**
-         * Calculate the ideal number of bins from the cGroup's values
-         * @param cName
-         * @returns {number} Number of bins
-         */
-        function calcNumBins(cName) {
-            var iqr;
-            if (chart.boxPlots) {
-                iqr = chart.groupObjs[cName].metrics.iqr
-            } else {
-                var quartile1 = d3.quantile(chart.groupObjs[cName].values, 0.25);
-                var quartile3 = d3.quantile(chart.groupObjs[cName].values, 0.75);
-                iqr = quartile3 - quartile1;
-            }
-            return Math.max(Math.round(2 * (iqr / Math.pow(chart.groupObjs[cName].values.length, 1 / 3))), 10)
-        }
-        
         /**
          * Take a new set of options and redraw the violin
          * @param updateOptions
          */
         chart.violinPlots.change = function (updateOptions) {
-            if (updateOptions) {for (var key in updateOptions) {vOpts[key] = updateOptions[key]}}
+            if (updateOptions) {
+                for (var key in updateOptions) {
+                    vOpts[key] = updateOptions[key]
+                }
+            }
 
-            for (var cName in chart.groupObjs) {chart.groupObjs[cName].violin.objs.g.remove()}
+            for (var cName in chart.groupObjs) {
+                chart.groupObjs[cName].violin.objs.g.remove()
+            }
+
             chart.violinPlots.prepareViolin();
-            chart.violinPlots.update()
+            chart.violinPlots.update();
         };
 
-        chart.violinPlots.reset = function () {chart.violinPlots.change(defaultOptions)};
+        chart.violinPlots.reset = function () {
+            chart.violinPlots.change(defaultOptions)
+        };
         chart.violinPlots.show = function (opts) {
-            if (opts!==undefined) {
-                opts.show=true;
-                if (opts.reset) {chart.violinPlots.reset()}
-            } else {opts = {show:true};}
-            chart.violinPlots.change(opts)};
+            if (opts !== undefined) {
+                opts.show = true;
+                if (opts.reset) {
+                    chart.violinPlots.reset()
+                }
+            } else {
+                opts = {show: true};
+            }
+            chart.violinPlots.change(opts);
+
+        };
+
         chart.violinPlots.hide = function (opts) {
-            if (opts!==undefined) {
-                opts.show=false;
-                if (opts.reset) {chart.violinPlots.reset()}
-            } else {opts = {show:false};}
-            chart.violinPlots.change(opts)};
-        
+            if (opts !== undefined) {
+                opts.show = false;
+                if (opts.reset) {
+                    chart.violinPlots.reset()
+                }
+            } else {
+                opts = {show: false};
+            }
+            chart.violinPlots.change(opts);
+
+        };
+
         /**
          * Update the violin obj values
          */
@@ -450,51 +479,125 @@ function makeDistroChart(settings) {
             for (cName in chart.groupObjs) {
                 cViolinPlot = chart.groupObjs[cName].violin;
 
-                if (vOpts.resolution) {
-                    cViolinPlot.histogramFunct.bins(vOpts.resolution);
-                } else {
-                    cViolinPlot.histogramFunct.bins(calcNumBins(cName));
+                // Build the violins sideways, so use the yScale for the xScale and make a new yScale
+                var xVScale = chart.yScale.copy();
+
+
+                // Create the Kernel Density Estimator Function
+                cViolinPlot.kde = kernelDensityEstimator(eKernel(vOpts.bandwidth), xVScale.ticks(vOpts.resolution));
+                cViolinPlot.kdedata = cViolinPlot.kde(chart.groupObjs[cName].values);
+
+                var interpolateMax = chart.groupObjs[cName].metrics.max,
+                    interpolateMin = chart.groupObjs[cName].metrics.min;
+
+                if (vOpts.clamp == 0 || vOpts.clamp == -1) { //
+                    // When clamp is 0, calculate the min and max that is needed to bring the violin plot to a point
+                    // interpolateMax = the Minimum value greater than the max where y = 0
+                    interpolateMax = d3.min(cViolinPlot.kdedata.filter(function (d) {
+                        return (d[0] > chart.groupObjs[cName].metrics.max && d[1] == 0)
+                    }), function (d) {
+                        return d[0];
+                    });
+                    // interpolateMin = the Maximum value less than the min where y = 0
+                    interpolateMin = d3.max(cViolinPlot.kdedata.filter(function (d) {
+                        return (d[0] < chart.groupObjs[cName].metrics.min && d[1] == 0)
+                    }), function (d) {
+                        return d[0];
+                    });
+                    // If clamp is -1 we need to extend the axises so that the violins come to a point
+                    if (vOpts.clamp == -1) {
+                        kdeTester = eKernelTest(eKernel(vOpts.bandwidth), chart.groupObjs[cName].values);
+                        if (!interpolateMax) {
+                            var interMaxY = kdeTester(chart.groupObjs[cName].metrics.max);
+                            var interMaxX = chart.groupObjs[cName].metrics.max;
+                            var count = 25; // Arbitrary limit to make sure we don't get an infinite loop
+                            while (count > 0 && interMaxY != 0) {
+                                interMaxY = kdeTester(interMaxX);
+                                interMaxX += 1;
+                                count -= 1;
+                            }
+                            interpolateMax = interMaxX;
+                        }
+                        if (!interpolateMin) {
+                            var interMinY = kdeTester(chart.groupObjs[cName].metrics.min);
+                            var interMinX = chart.groupObjs[cName].metrics.min;
+                            var count = 25;  // Arbitrary limit to make sure we don't get an infinite loop
+                            while (count > 0 && interMinY != 0) {
+                                interMinY = kdeTester(interMinX);
+                                interMinX -= 1;
+                                count -= 1;
+                            }
+                            interpolateMin = interMinX;
+                        }
+
+                    }
+                    // Check to see if the new values are outside the existing chart range
+                    //   If they are assign them to the master _yDomainVP
+                    if (!vOpts._yDomainVP) vOpts._yDomainVP = chart.range.slice(0);
+                    if (interpolateMin && interpolateMin < vOpts._yDomainVP[0]) {
+                        vOpts._yDomainVP[0] = interpolateMin;
+                    }
+                    if (interpolateMax && interpolateMax > vOpts._yDomainVP[1]) {
+                        vOpts._yDomainVP[1] = interpolateMax;
+                    }
+
+
                 }
 
-                cViolinPlot.histogramData = cViolinPlot.histogramFunct(chart.groupObjs[cName].values);
+
+                if (vOpts.showViolinPlot) {
+                    chart.update();
+                    xVScale = chart.yScale.copy();
+
+                    // Need to recalculate the KDE because the xVScale changed
+                    cViolinPlot.kde = kernelDensityEstimator(eKernel(vOpts.bandwidth), xVScale.ticks(vOpts.resolution));
+                    cViolinPlot.kdedata = cViolinPlot.kde(chart.groupObjs[cName].values);
+                }
+
+                cViolinPlot.kdedata = cViolinPlot.kdedata
+                    .filter(function (d) {
+                        return (!interpolateMin || d[0] >= interpolateMin)
+                    })
+                    .filter(function (d) {
+                        return (!interpolateMax || d[0] <= interpolateMax)
+                    });
+            }
+            for (cName in chart.groupObjs) {
+                cViolinPlot = chart.groupObjs[cName].violin;
 
                 // Get the violin width
                 var objBounds = getObjWidth(vOpts.width, cName);
-
                 var width = (objBounds.right - objBounds.left) / 2;
 
-                // Build the violins sideways, so use the yScale for the xScale and make a new yScale
-                var xVScale = chart.yScale.copy();
                 var yVScale = d3.scale.linear()
                     .range([width, 0])
-                    .domain([0,d3.max(cViolinPlot.histogramData, function (d) {return d.y;})])
+                    .domain([0, d3.max(cViolinPlot.kdedata, function (d) {return d[1];})])
                     .clamp(true);
 
                 var area = d3.svg.area()
                     .interpolate(vOpts.interpolation)
-                    .x(function (d) {return xVScale(d.x);})
+                    .x(function (d) {return xVScale(d[0]);})
                     .y0(width)
-                    .y1(function (d) {return yVScale(d.y);});
+                    .y1(function (d) {return yVScale(d[1]);});
 
                 var line = d3.svg.line()
                     .interpolate(vOpts.interpolation)
-                    .x(function (d) {return xVScale(d.x);})
-                    .y(function (d) {return yVScale(d.y)});
-
+                    .x(function (d) {return xVScale(d[0]);})
+                    .y(function (d) {return yVScale(d[1])});
 
                 if (cViolinPlot.objs.left.area) {
                     cViolinPlot.objs.left.area
-                        .datum(cViolinPlot.histogramData)
+                        .datum(cViolinPlot.kdedata)
                         .attr("d", area);
                     cViolinPlot.objs.left.line
-                        .datum(cViolinPlot.histogramData)
+                        .datum(cViolinPlot.kdedata)
                         .attr("d", line);
 
                     cViolinPlot.objs.right.area
-                        .datum(cViolinPlot.histogramData)
+                        .datum(cViolinPlot.kdedata)
                         .attr("d", area);
                     cViolinPlot.objs.right.line
-                        .datum(cViolinPlot.histogramData)
+                        .datum(cViolinPlot.kdedata)
                         .attr("d", line);
                 }
 
@@ -507,7 +610,7 @@ function makeDistroChart(settings) {
         /**
          * Create the svg elements for the violin plot
          */
-        chart.violinPlots.prepareViolin = function() {
+        chart.violinPlots.prepareViolin = function () {
             var cName, cViolinPlot;
 
             if (vOpts.colors) {
@@ -515,9 +618,9 @@ function makeDistroChart(settings) {
             } else {
                 chart.violinPlots.color = chart.colorFunct
             }
-            
-            if (vOpts.show==false) {return}
-            
+
+            if (vOpts.show == false) {return}
+
             for (cName in chart.groupObjs) {
                 cViolinPlot = chart.groupObjs[cName].violin;
 
@@ -551,6 +654,30 @@ function makeDistroChart(settings) {
             }
 
         };
+
+
+        function kernelDensityEstimator(kernel, x) {
+            return function (sample) {
+                return x.map(function (x) {
+                    return [x, d3.mean(sample, function (v) {return kernel(x - v);})];
+                });
+            };
+        }
+
+        function eKernel(scale) {
+            return function (u) {
+                return Math.abs(u /= scale) <= 1 ? .75 * (1 - u * u) / scale : 0;
+            };
+        }
+
+        // Used to find the roots for adjusting violin axis
+        // Given an array, find the value for a single point, even if it is not in the domain
+        function eKernelTest(kernel, array) {
+            return function (testX) {
+                return d3.mean(array, function (v) {return kernel(testX - v);})
+            }
+        }
+
         chart.violinPlots.prepareViolin();
 
         d3.select(window).on('resize.' + chart.selector + '.violinPlot', chart.violinPlots.update);
@@ -580,22 +707,25 @@ function makeDistroChart(settings) {
 
         // Defaults
         var defaultOptions = {
-            show:true,
-            showBox:true,
-            showWhiskers:true,
-            showMedian:true,
-            showMean:false,
-            medianCSize:3.5,
-            showOutliers:true,
-            boxWidth:30,
-            lineWidth:null,
-            scatterOutliers:false,
-            outlierCSize:2.5,
-            colors:chart.colorFunct};
+            show: true,
+            showBox: true,
+            showWhiskers: true,
+            showMedian: true,
+            showMean: false,
+            medianCSize: 3.5,
+            showOutliers: true,
+            boxWidth: 30,
+            lineWidth: null,
+            scatterOutliers: false,
+            outlierCSize: 2.5,
+            colors: chart.colorFunct
+        };
         chart.boxPlots.options = shallowCopy(defaultOptions);
-        for (var option in options) {chart.boxPlots.options[option] = options[option]}
+        for (var option in options) {
+            chart.boxPlots.options[option] = options[option]
+        }
         var bOpts = chart.boxPlots.options;
-        
+
         //Create box plot objects
         for (var cName in chart.groupObjs) {
             chart.groupObjs[cName].boxPlot = {};
@@ -648,27 +778,46 @@ function makeDistroChart(settings) {
          * @param updateOptions
          */
         chart.boxPlots.change = function (updateOptions) {
-            if (updateOptions) {for (var key in updateOptions) {bOpts[key] = updateOptions[key]}}
+            if (updateOptions) {
+                for (var key in updateOptions) {
+                    bOpts[key] = updateOptions[key]
+                }
+            }
 
-            for (var cName in chart.groupObjs) {chart.groupObjs[cName].boxPlot.objs.g.remove()}
+            for (var cName in chart.groupObjs) {
+                chart.groupObjs[cName].boxPlot.objs.g.remove()
+            }
             chart.boxPlots.prepareBoxPlot();
             chart.boxPlots.update()
         };
-        
-        chart.boxPlots.reset = function () {chart.boxPlots.change(defaultOptions)};
+
+        chart.boxPlots.reset = function () {
+            chart.boxPlots.change(defaultOptions)
+        };
         chart.boxPlots.show = function (opts) {
-            if (opts!==undefined) {
-                opts.show=true;
-                if (opts.reset) {chart.boxPlots.reset()}
-            } else {opts = {show:true};}
-            chart.boxPlots.change(opts)};
+            if (opts !== undefined) {
+                opts.show = true;
+                if (opts.reset) {
+                    chart.boxPlots.reset()
+                }
+            } else {
+                opts = {show: true};
+            }
+            chart.boxPlots.change(opts)
+
+        };
         chart.boxPlots.hide = function (opts) {
-            if (opts!==undefined) {
-                opts.show=false;
-                if (opts.reset) {chart.boxPlots.reset()}
-            } else {opts = {show:false};}
-            chart.boxPlots.change(opts)};
-        
+            if (opts !== undefined) {
+                opts.show = false;
+                if (opts.reset) {
+                    chart.boxPlots.reset()
+                }
+            } else {
+                opts = {show: false};
+            }
+            chart.boxPlots.change(opts)
+        };
+
         /**
          * Update the box plot obj values
          */
@@ -761,14 +910,14 @@ function makeDistroChart(settings) {
                 if (cBoxPlot.objs.outliers) {
                     for (pt in cBoxPlot.objs.outliers) {
                         cBoxPlot.objs.outliers[pt].point
-                            .attr("cx", objBounds.middle+addJitter(bOpts.scatterOutliers,width))
+                            .attr("cx", objBounds.middle + addJitter(bOpts.scatterOutliers, width))
                             .attr("cy", chart.yScale(cBoxPlot.objs.outliers[pt].value));
                     }
                 }
                 if (cBoxPlot.objs.extremes) {
                     for (pt in cBoxPlot.objs.extremes) {
                         cBoxPlot.objs.extremes[pt].point
-                            .attr("cx", objBounds.middle+addJitter(bOpts.scatterOutliers,width))
+                            .attr("cx", objBounds.middle + addJitter(bOpts.scatterOutliers, width))
                             .attr("cy", chart.yScale(cBoxPlot.objs.extremes[pt].value));
                     }
                 }
@@ -778,7 +927,7 @@ function makeDistroChart(settings) {
         /**
          * Create the svg elements for the box plot
          */
-        chart.boxPlots.prepareBoxPlot = function() {
+        chart.boxPlots.prepareBoxPlot = function () {
             var cName, cBoxPlot;
 
             if (bOpts.colors) {
@@ -786,9 +935,11 @@ function makeDistroChart(settings) {
             } else {
                 chart.boxPlots.colorFunct = chart.colorFunct
             }
-            
-            if (bOpts.show==false) {return}
-            
+
+            if (bOpts.show == false) {
+                return
+            }
+
             for (cName in chart.groupObjs) {
                 cBoxPlot = chart.groupObjs[cName].boxPlot;
 
@@ -800,8 +951,8 @@ function makeDistroChart(settings) {
                         .attr("class", "box")
                         .style("fill", chart.boxPlots.colorFunct(cName))
                         .style("stroke", chart.boxPlots.colorFunct(cName));
-                        //A stroke is added to the box with the group color, it is
-                        // hidden by default and can be shown through css with stroke-width
+                    //A stroke is added to the box with the group color, it is
+                    // hidden by default and can be shown through css with stroke-width
                 }
 
                 //Plot Median (default show)
@@ -899,16 +1050,19 @@ function makeDistroChart(settings) {
 
         //Defaults
         var defaultOptions = {
-                            show:true,
-                            showNotchBox:true,
-                            showLines:false,
-                            boxWidth:35,
-                            medianWidth:20,
-                            lineWidth:50,
-                            notchStyle:null,
-                            colors:null};
+            show: true,
+            showNotchBox: true,
+            showLines: false,
+            boxWidth: 35,
+            medianWidth: 20,
+            lineWidth: 50,
+            notchStyle: null,
+            colors: null
+        };
         chart.notchBoxes.options = shallowCopy(defaultOptions);
-        for (var option in options) {chart.notchBoxes.options[option] = options[option]}
+        for (var option in options) {
+            chart.notchBoxes.options[option] = options[option]
+        }
         var nOpts = chart.notchBoxes.options;
 
         //Create notch objects
@@ -925,7 +1079,7 @@ function makeDistroChart(settings) {
          */
         function makeNotchBox(cNotch, notchBounds) {
             var scaledValues = [];
-            if (nOpts.notchStyle=='box') {
+            if (nOpts.notchStyle == 'box') {
                 scaledValues = [
                     [notchBounds.boxLeft, chart.yScale(cNotch.metrics.quartile1)],
                     [notchBounds.boxLeft, chart.yScale(cNotch.metrics.lowerNotch)],
@@ -956,17 +1110,19 @@ function makeDistroChart(settings) {
                     [notchBounds.boxRight, chart.yScale(cNotch.metrics.quartile1)]
                 ];
             }
-            return scaledValues.map(function(d) { return [d[0],d[1]].join(","); }).join(" ");
+            return scaledValues.map(function (d) {
+                return [d[0], d[1]].join(",");
+            }).join(" ");
         }
 
         /**
          * Calculate the confidence intervals
          */
         !function calcNotches() {
-            var cNotch,modifier;
+            var cNotch, modifier;
             for (var cName in chart.groupObjs) {
                 cNotch = chart.groupObjs[cName];
-                modifier = (1.57 * (cNotch.metrics.iqr/Math.sqrt(cNotch.values.length)));
+                modifier = (1.57 * (cNotch.metrics.iqr / Math.sqrt(cNotch.values.length)));
                 cNotch.metrics.upperNotch = cNotch.metrics.median + modifier;
                 cNotch.metrics.lowerNotch = cNotch.metrics.median - modifier;
             }
@@ -976,28 +1132,46 @@ function makeDistroChart(settings) {
          * Take a new set of options and redraw the notch boxes
          * @param updateOptions
          */
-        chart.notchBoxes.change = function(updateOptions) {
-            if (updateOptions) {for (var key in updateOptions) {nOpts[key] = updateOptions[key]}}
+        chart.notchBoxes.change = function (updateOptions) {
+            if (updateOptions) {
+                for (var key in updateOptions) {
+                    nOpts[key] = updateOptions[key]
+                }
+            }
 
-            for (var cName in chart.groupObjs) {chart.groupObjs[cName].notchBox.objs.g.remove()}
+            for (var cName in chart.groupObjs) {
+                chart.groupObjs[cName].notchBox.objs.g.remove()
+            }
             chart.notchBoxes.prepareNotchBoxes();
             chart.notchBoxes.update();
         };
 
-        chart.notchBoxes.reset = function () {chart.notchBoxes.change(defaultOptions)};
+        chart.notchBoxes.reset = function () {
+            chart.notchBoxes.change(defaultOptions)
+        };
         chart.notchBoxes.show = function (opts) {
-            if (opts!==undefined) {
-                opts.show=true;
-                if (opts.reset) {chart.notchBoxes.reset()}
-            } else {opts = {show:true};}
-            chart.notchBoxes.change(opts)};
+            if (opts !== undefined) {
+                opts.show = true;
+                if (opts.reset) {
+                    chart.notchBoxes.reset()
+                }
+            } else {
+                opts = {show: true};
+            }
+            chart.notchBoxes.change(opts)
+        };
         chart.notchBoxes.hide = function (opts) {
-            if (opts!==undefined) {
-                opts.show=false;
-                if (opts.reset) {chart.notchBoxes.reset()}
-            } else {opts = {show:false};}
-            chart.notchBoxes.change(opts)};
-        
+            if (opts !== undefined) {
+                opts.show = false;
+                if (opts.reset) {
+                    chart.notchBoxes.reset()
+                }
+            } else {
+                opts = {show: false};
+            }
+            chart.notchBoxes.change(opts)
+        };
+
         /**
          * Update the notch box obj values
          */
@@ -1011,16 +1185,18 @@ function makeDistroChart(settings) {
                 var boxBounds = getObjWidth(nOpts.boxWidth, cName);
                 var medianBounds = getObjWidth(nOpts.medianWidth, cName);
 
-                var notchBounds = {boxLeft:boxBounds.left,
-                                    boxRight:boxBounds.right,
-                                    middle:boxBounds.middle,
-                                    medianLeft:medianBounds.left,
-                                    medianRight:medianBounds.right};
+                var notchBounds = {
+                    boxLeft: boxBounds.left,
+                    boxRight: boxBounds.right,
+                    middle: boxBounds.middle,
+                    medianLeft: medianBounds.left,
+                    medianRight: medianBounds.right
+                };
 
                 // Notch Box
                 if (cGroup.notchBox.objs.notch) {
                     cGroup.notchBox.objs.notch
-                        .attr("points",makeNotchBox(cGroup, notchBounds));
+                        .attr("points", makeNotchBox(cGroup, notchBounds));
                 }
                 if (cGroup.notchBox.objs.upperLine) {
                     var lineBounds = null;
@@ -1031,8 +1207,8 @@ function makeDistroChart(settings) {
                     }
 
                     var confidenceLines = {
-                        upper:chart.yScale(cGroup.metrics.upperNotch),
-                        lower:chart.yScale(cGroup.metrics.lowerNotch)
+                        upper: chart.yScale(cGroup.metrics.upperNotch),
+                        lower: chart.yScale(cGroup.metrics.lowerNotch)
                     };
                     cGroup.notchBox.objs.upperLine
                         .attr("x1", lineBounds.left)
@@ -1051,7 +1227,7 @@ function makeDistroChart(settings) {
         /**
          * Create the svg elements for the notch boxes
          */
-        chart.notchBoxes.prepareNotchBoxes = function()  {
+        chart.notchBoxes.prepareNotchBoxes = function () {
             var cName, cNotch;
 
             if (nOpts && nOpts.colors) {
@@ -1059,9 +1235,11 @@ function makeDistroChart(settings) {
             } else {
                 chart.notchBoxes.colorFunct = chart.colorFunct
             }
-    
-            if (nOpts.show==false) {return}
-            
+
+            if (nOpts.show == false) {
+                return
+            }
+
             for (cName in chart.groupObjs) {
                 cNotch = chart.groupObjs[cName].notchBox;
 
@@ -1073,8 +1251,8 @@ function makeDistroChart(settings) {
                         .attr("class", "notch")
                         .style("fill", chart.notchBoxes.colorFunct(cName))
                         .style("stroke", chart.notchBoxes.colorFunct(cName));
-                        //A stroke is added to the notch with the group color, it is
-                        // hidden by default and can be shown through css with stroke-width
+                    //A stroke is added to the notch with the group color, it is
+                    // hidden by default and can be shown through css with stroke-width
                 }
 
                 //Plot Confidence Lines (default hide)
@@ -1116,16 +1294,19 @@ function makeDistroChart(settings) {
 
         //Defaults
         var defaultOptions = {
-                            show:true,
-                            showPlot:false,
-                            plotType:'none',
-                            pointSize:6,
-                            showLines:false,//['median'],
-                            showBeanLines:false,
-                            beanWidth:20,
-                            colors:null};
-        chart.dataPlots.options = shallowCopy(defaultOptions)
-        for (var option in options) {chart.dataPlots.options[option] = options[option]}
+            show: true,
+            showPlot: false,
+            plotType: 'none',
+            pointSize: 6,
+            showLines: false,//['median'],
+            showBeanLines: false,
+            beanWidth: 20,
+            colors: null
+        };
+        chart.dataPlots.options = shallowCopy(defaultOptions);
+        for (var option in options) {
+            chart.dataPlots.options[option] = options[option]
+        }
         var dOpts = chart.dataPlots.options;
 
         //Create notch objects
@@ -1141,28 +1322,46 @@ function makeDistroChart(settings) {
          * @param updateOptions
          */
         chart.dataPlots.change = function (updateOptions) {
-            if (updateOptions) {for (var key in updateOptions) {dOpts[key] = updateOptions[key]}}
+            if (updateOptions) {
+                for (var key in updateOptions) {
+                    dOpts[key] = updateOptions[key]
+                }
+            }
 
             chart.dataPlots.objs.g.remove();
-            for (var cName in chart.groupObjs) {chart.groupObjs[cName].dataPlots.objs.g.remove()}
+            for (var cName in chart.groupObjs) {
+                chart.groupObjs[cName].dataPlots.objs.g.remove()
+            }
             chart.dataPlots.preparePlots();
             chart.dataPlots.update()
         };
-        
-        chart.dataPlots.reset = function () {chart.dataPlots.change(defaultOptions)};
+
+        chart.dataPlots.reset = function () {
+            chart.dataPlots.change(defaultOptions)
+        };
         chart.dataPlots.show = function (opts) {
-            if (opts!==undefined) {
-                opts.show=true;
-                if (opts.reset) {chart.dataPlots.reset()}
-            } else {opts = {show:true};}
-            chart.dataPlots.change(opts)};
+            if (opts !== undefined) {
+                opts.show = true;
+                if (opts.reset) {
+                    chart.dataPlots.reset()
+                }
+            } else {
+                opts = {show: true};
+            }
+            chart.dataPlots.change(opts)
+        };
         chart.dataPlots.hide = function (opts) {
-            if (opts!==undefined) {
-                opts.show=false;
-                if (opts.reset) {chart.dataPlots.reset()}
-            } else {opts = {show:false};}
-            chart.dataPlots.change(opts)};
-        
+            if (opts !== undefined) {
+                opts.show = false;
+                if (opts.reset) {
+                    chart.dataPlots.reset()
+                }
+            } else {
+                opts = {show: false};
+            }
+            chart.dataPlots.change(opts)
+        };
+
         /**
          * Update the data plot obj values
          */
@@ -1171,13 +1370,15 @@ function makeDistroChart(settings) {
 
             // Metrics lines
             if (chart.dataPlots.objs.g) {
-                var halfBand = chart.xScale.rangeBand()/2; // find the middle of each band
+                var halfBand = chart.xScale.rangeBand() / 2; // find the middle of each band
                 for (var cMetric in chart.dataPlots.objs.lines) {
                     chart.dataPlots.objs.lines[cMetric].line
-                        .x(function (d) {return chart.xScale(d.x)+halfBand});
+                        .x(function (d) {
+                            return chart.xScale(d.x) + halfBand
+                        });
                     chart.dataPlots.objs.lines[cMetric].g
                         .datum(chart.dataPlots.objs.lines[cMetric].values)
-                        .attr('d',chart.dataPlots.objs.lines[cMetric].line);
+                        .attr('d', chart.dataPlots.objs.lines[cMetric].line);
                 }
             }
 
@@ -1187,38 +1388,40 @@ function makeDistroChart(settings) {
                 cPlot = cGroup.dataPlots;
 
                 if (cPlot.objs.points) {
-                    if (dOpts.plotType=='beeswarm') {
+                    if (dOpts.plotType == 'beeswarm') {
                         var swarmBounds = getObjWidth(100, cName);
                         var yPtScale = chart.yScale.copy()
-                            .range([Math.floor(chart.yScale.range()[0]/dOpts.pointSize),0])
+                            .range([Math.floor(chart.yScale.range()[0] / dOpts.pointSize), 0])
                             .interpolate(d3.interpolateRound)
                             .domain(chart.yScale.domain());
-                        var maxWidth = Math.floor(chart.xScale.rangeBand()/dOpts.pointSize);
+                        var maxWidth = Math.floor(chart.xScale.rangeBand() / dOpts.pointSize);
                         var ptsObj = {};
                         var cYBucket = null;
                         //  Bucket points
-                        for (var pt = 0; pt<cGroup.values.length; pt++) {
+                        for (var pt = 0; pt < cGroup.values.length; pt++) {
                             cYBucket = yPtScale(cGroup.values[pt]);
-                            if (ptsObj.hasOwnProperty(cYBucket)!==true) {ptsObj[cYBucket]=[];}
+                            if (ptsObj.hasOwnProperty(cYBucket) !== true) {
+                                ptsObj[cYBucket] = [];
+                            }
                             ptsObj[cYBucket].push(cPlot.objs.points.pts[pt]
                                 .attr("cx", swarmBounds.middle)
-                                .attr("cy", yPtScale(cGroup.values[pt])*dOpts.pointSize));
+                                .attr("cy", yPtScale(cGroup.values[pt]) * dOpts.pointSize));
                         }
                         //  Plot buckets
-                        var rightMax = Math.min(swarmBounds.right-dOpts.pointSize);
+                        var rightMax = Math.min(swarmBounds.right - dOpts.pointSize);
                         for (var row in ptsObj) {
-                            var leftMin = swarmBounds.left+(Math.max((maxWidth - ptsObj[row].length)/2, 0)*dOpts.pointSize);
+                            var leftMin = swarmBounds.left + (Math.max((maxWidth - ptsObj[row].length) / 2, 0) * dOpts.pointSize);
                             var col = 0;
                             for (pt in ptsObj[row]) {
-                                ptsObj[row][pt].attr("cx", Math.min(leftMin+col*dOpts.pointSize,rightMax)+dOpts.pointSize/2);
+                                ptsObj[row][pt].attr("cx", Math.min(leftMin + col * dOpts.pointSize, rightMax) + dOpts.pointSize / 2);
                                 col++
                             }
                         }
                     } else { // For scatter points and points with no scatter
                         var plotBounds = null,
-                            scatterWidth=0,
-                            width= 0;
-                        if (dOpts.plotType=='scatter' || typeof dOpts.plotType=='number') {
+                            scatterWidth = 0,
+                            width = 0;
+                        if (dOpts.plotType == 'scatter' || typeof dOpts.plotType == 'number') {
                             //Default scatter percentage is 20% of box width
                             scatterWidth = typeof dOpts.plotType == 'number' ? dOpts.plotType : 20;
                         }
@@ -1226,9 +1429,9 @@ function makeDistroChart(settings) {
                         plotBounds = getObjWidth(scatterWidth, cName);
                         width = plotBounds.right - plotBounds.left;
 
-                        for (var pt = 0; pt<cGroup.values.length; pt++) {
+                        for (var pt = 0; pt < cGroup.values.length; pt++) {
                             cPlot.objs.points.pts[pt]
-                                .attr("cx", plotBounds.middle+addJitter(true,width))
+                                .attr("cx", plotBounds.middle + addJitter(true, width))
                                 .attr("cy", chart.yScale(cGroup.values[pt]));
                         }
                     }
@@ -1237,7 +1440,7 @@ function makeDistroChart(settings) {
 
                 if (cPlot.objs.bean) {
                     var beanBounds = getObjWidth(dOpts.beanWidth, cName);
-                    for (var pt = 0; pt<cGroup.values.length; pt++) {
+                    for (var pt = 0; pt < cGroup.values.length; pt++) {
                         cPlot.objs.bean.lines[pt]
                             .attr("x1", beanBounds.left)
                             .attr("x2", beanBounds.right)
@@ -1259,8 +1462,10 @@ function makeDistroChart(settings) {
             } else {
                 chart.dataPlots.colorFunct = chart.colorFunct
             }
-            
-            if (dOpts.show==false) {return}
+
+            if (dOpts.show == false) {
+                return
+            }
 
             // Metrics lines
             chart.dataPlots.objs.g = chart.objs.g.append("g").attr("class", "metrics-lines");
@@ -1272,13 +1477,18 @@ function makeDistroChart(settings) {
                     chart.dataPlots.objs.lines[cMetric] = {};
                     chart.dataPlots.objs.lines[cMetric].values = [];
                     for (var cGroup in chart.groupObjs) {
-                        chart.dataPlots.objs.lines[cMetric].values.push({x:cGroup, y:chart.groupObjs[cGroup].metrics[cMetric]})
+                        chart.dataPlots.objs.lines[cMetric].values.push({
+                            x: cGroup,
+                            y: chart.groupObjs[cGroup].metrics[cMetric]
+                        })
                     }
                     chart.dataPlots.objs.lines[cMetric].line = d3.svg.line()
                         .interpolate("cardinal")
-                        .y(function (d) {return chart.yScale(d.y)});
+                        .y(function (d) {
+                            return chart.yScale(d.y)
+                        });
                     chart.dataPlots.objs.lines[cMetric].g = chart.dataPlots.objs.g.append("path")
-                        .attr("class", "line "+cMetric)
+                        .attr("class", "line " + cMetric)
                         .attr("data-metric", cMetric)
                         .style("fill", 'none')
                         .style("stroke", chart.colorFunct(cMetric));
@@ -1299,7 +1509,7 @@ function makeDistroChart(settings) {
                     for (var pt = 0; pt < chart.groupObjs[cName].values.length; pt++) {
                         cPlot.objs.points.pts.push(cPlot.objs.points.g.append("circle")
                             .attr("class", "point")
-                            .attr('r', dOpts.pointSize/2)// Options is diameter, r takes radius so divide by 2
+                            .attr('r', dOpts.pointSize / 2)// Options is diameter, r takes radius so divide by 2
                             .style("fill", chart.dataPlots.colorFunct(cName)));
                     }
                 }
@@ -1310,10 +1520,10 @@ function makeDistroChart(settings) {
                     cPlot.objs.bean = {g: null, lines: []};
                     cPlot.objs.bean.g = cPlot.objs.g.append("g").attr("class", "bean-plot");
                     for (var pt = 0; pt < chart.groupObjs[cName].values.length; pt++) {
-                    cPlot.objs.bean.lines.push(cPlot.objs.bean.g.append("line")
-                        .attr("class", "bean line")
-                        .style("stroke-width", '1')
-                        .style("stroke", chart.dataPlots.colorFunct(cName)));
+                        cPlot.objs.bean.lines.push(cPlot.objs.bean.g.append("line")
+                            .attr("class", "bean line")
+                            .style("stroke-width", '1')
+                            .style("stroke", chart.dataPlots.colorFunct(cName)));
                     }
                 }
             }
