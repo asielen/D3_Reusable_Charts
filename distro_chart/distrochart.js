@@ -41,6 +41,7 @@ function makeDistroChart(settings) {
         chart.settings[setting] = settings[setting]
     }
 
+
     function formatAsFloat(d) {
         if (d % 1 !== 0) {
             return d3.format(".2f")(d);
@@ -494,15 +495,15 @@ function makeDistroChart(settings) {
                     // When clamp is 0, calculate the min and max that is needed to bring the violin plot to a point
                     // interpolateMax = the Minimum value greater than the max where y = 0
                     interpolateMax = d3.min(cViolinPlot.kdedata.filter(function (d) {
-                        return (d[0] > chart.groupObjs[cName].metrics.max && d[1] == 0)
+                        return (d.x > chart.groupObjs[cName].metrics.max && d.y == 0)
                     }), function (d) {
-                        return d[0];
+                        return d.x;
                     });
                     // interpolateMin = the Maximum value less than the min where y = 0
                     interpolateMin = d3.max(cViolinPlot.kdedata.filter(function (d) {
-                        return (d[0] < chart.groupObjs[cName].metrics.min && d[1] == 0)
+                        return (d.x < chart.groupObjs[cName].metrics.min && d.y == 0)
                     }), function (d) {
-                        return d[0];
+                        return d.x;
                     });
                     // If clamp is -1 we need to extend the axises so that the violins come to a point
                     if (vOpts.clamp == -1) {
@@ -556,10 +557,10 @@ function makeDistroChart(settings) {
 
                 cViolinPlot.kdedata = cViolinPlot.kdedata
                     .filter(function (d) {
-                        return (!interpolateMin || d[0] >= interpolateMin)
+                        return (!interpolateMin || d.x >= interpolateMin)
                     })
                     .filter(function (d) {
-                        return (!interpolateMax || d[0] <= interpolateMax)
+                        return (!interpolateMax || d.x <= interpolateMax)
                     });
             }
             for (cName in chart.groupObjs) {
@@ -571,19 +572,19 @@ function makeDistroChart(settings) {
 
                 var yVScale = d3.scale.linear()
                     .range([width, 0])
-                    .domain([0, d3.max(cViolinPlot.kdedata, function (d) {return d[1];})])
+                    .domain([0, d3.max(cViolinPlot.kdedata, function (d) {return d.y;})])
                     .clamp(true);
 
                 var area = d3.svg.area()
                     .interpolate(vOpts.interpolation)
-                    .x(function (d) {return xVScale(d[0]);})
+                    .x(function (d) {return xVScale(d.x);})
                     .y0(width)
-                    .y1(function (d) {return yVScale(d[1]);});
+                    .y1(function (d) {return yVScale(d.y);});
 
                 var line = d3.svg.line()
                     .interpolate(vOpts.interpolation)
-                    .x(function (d) {return xVScale(d[0]);})
-                    .y(function (d) {return yVScale(d[1])});
+                    .x(function (d) {return xVScale(d.x);})
+                    .y(function (d) {return yVScale(d.y)});
 
                 if (cViolinPlot.objs.left.area) {
                     cViolinPlot.objs.left.area
@@ -659,7 +660,7 @@ function makeDistroChart(settings) {
         function kernelDensityEstimator(kernel, x) {
             return function (sample) {
                 return x.map(function (x) {
-                    return [x, d3.mean(sample, function (v) {return kernel(x - v);})];
+                    return {x:x, y:d3.mean(sample, function (v) {return kernel(x - v);})};
                 });
             };
         }
