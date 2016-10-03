@@ -15,7 +15,7 @@
  * @param [settings.yTicks = 1] 1 = default ticks. 2 =  double, 0.5 = half
  * @param [settings.scale='linear'] 'linear' or 'log' - y scale of the chart
  * @param [settings.chartSize={width:800, height:400}] The height and width of the chart itself (doesn't include the container)
- * @param [settings.margin={top: 15, right: 60, bottom: 40, left: 50}] The margins around the chart (inside the main div)
+ * @param [settings.margin={top: 15, right: 40, bottom: 40, left: 50}] The margins around the chart (inside the main div)
  * @param [settings.constrainExtremes=false] Should the y scale include outliers?
  * @returns {object} chart A chart object
  */
@@ -33,7 +33,7 @@ function makeDistroChart(settings) {
         yTicks: 1,
         scale: 'linear',
         chartSize: {width: 800, height: 400},
-        margin: {top: 15, right: 60, bottom: 40, left: 50},
+        margin: {top: 15, right: 40, bottom: 40, left: 50},
         constrainExtremes: false,
         color: d3.scale.category10()
     };
