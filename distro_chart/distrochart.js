@@ -15,6 +15,7 @@
  * @param [settings.yTicks = 1] 1 = default ticks. 2 =  double, 0.5 = half
  * @param [settings.scale='linear'] 'linear' or 'log' - y scale of the chart
  * @param [settings.chartSize={width:800, height:400}] The height and width of the chart itself (doesn't include the container)
+ * @param [settings.alignment="horizontal" default] Vertical makes the bar charts across the page
  * @param [settings.margin={top: 15, right: 40, bottom: 40, left: 50}] The margins around the chart (inside the main div)
  * @param [settings.constrainExtremes=false] Should the y scale include outliers?
  * @returns {object} chart A chart object
@@ -33,9 +34,11 @@ function makeDistroChart(settings) {
         yTicks: 1,
         scale: 'linear',
         chartSize: {width: 800, height: 400},
+        alignment: "horizontal",
         margin: {top: 15, right: 40, bottom: 40, left: 50},
         constrainExtremes: false,
-        color: d3.scale.category10()
+        color: d3.scale.category10(),
+        _calignment: "horizontal"
     };
     for (var setting in settings) {
         chart.settings[setting] = settings[setting]
@@ -151,6 +154,66 @@ function makeDistroChart(settings) {
     }
 
     /**
+     * Takes the settings and rotates the chart based on the given settings
+     */
+    chart.rotateChart = function() {
+        console.log(chart.settings.alignment, chart.settings._calignment);
+        if ((chart.settings.alignment == "vertical" && chart.settings._calignment != "vertical") || (chart.settings._calignment == "horizontal" && chart.settings.alignment == "horizontal")) {
+            console.log("Make Vertical");
+            if(chart.settings._calignment == chart.settings.alignment) {
+                var tempdivHeight = chart.divHeight;
+                chart.divHeight = chart.divWidth;
+                chart.divWidth = tempdivHeight;
+                chart.objs.mainDiv.style("max-width", chart.divWidth + "px");
+                chart.objs.innerDiv.style("padding-bottom", (chart.divHeight / chart.divWidth) * 100 + "%");
+                chart.objs.svg
+                    .attr("height", chart.width + (chart.margin.left + chart.margin.right))
+                    .attr("width", chart.height + (chart.margin.top + chart.margin.bottom));
+                chart.objs.g.attr("transform", "translate(" + chart.width-chart.margin.top + "," + chart.margin.left + ") rotate(90)");
+            }
+            var tempChartHeight = chart.height;
+            chart.height = chart.width;
+            chart.width = tempChartHeight;
+
+            chart.width = chart.settings.chartSize.width - chart.margin.left - chart.margin.right;
+            chart.height = chart.settings.chartSize.height - chart.margin.top - chart.margin.bottom;
+            chart.objs.g.attr("transform", "translate(" + chart.width + "," + chart.margin.left + ") rotate(90)");
+            //chart.objs.g.attr("transform","translate("+chart.width+",0) rotate(90)");
+            chart.objs.yAxis.orient("right");
+            chart.objs.g.select('.y.axis').call(chart.objs.yAxis.innerTickSize(chart.width));
+            chart.settings.alignment = "vertical";
+            chart.settings._calignment = chart.settings.alignment;
+            chart.update();
+
+        } else if (chart.settings._calignment == "vertical" && chart.settings.alignment == "vertical") {
+            console.log("Make Horizontal");
+            if(chart.settings._calignment == chart.settings.alignment) {
+                var tempdivHeight = chart.divHeight;
+                chart.divHeight = chart.divWidth;
+                chart.divWidth = tempdivHeight;
+                chart.objs.mainDiv.style("max-width", chart.divWidth + "px");
+                chart.objs.innerDiv.style("padding-bottom", (chart.divHeight / chart.divWidth) * 100 + "%");
+                chart.objs.svg
+                    .attr("width", chart.width + (chart.margin.left + chart.margin.right))
+                    .attr("height", chart.height + (chart.margin.top + chart.margin.bottom));
+                chart.objs.g
+                    .attr("transform", "translate(" + chart.margin.left + "," + chart.margin.top + ")");
+            }
+            var tempChartHeight = chart.height;
+            chart.height = chart.width;
+            chart.width = tempChartHeight;
+
+            //chart.objs.g.attr("transform","rotate(0)");
+            chart.objs.yAxis.orient("left");
+            chart.objs.g.select('.y.axis').call(chart.objs.yAxis.innerTickSize(-chart.width));
+            chart.settings.alignment = "horizontal";
+            chart.settings._calignment = chart.settings.alignment;
+            chart.update();
+        }
+        console.log(chart.settings.alignment, chart.settings._calignment);
+    };
+
+    /**
      * Parse the data and calculates base values for the plots
      */
     !function prepareData() {
@@ -195,7 +258,6 @@ function makeDistroChart(settings) {
                 }
             }
 
-
             metrics.lowerOuterFence = metrics.quartile1 - (3 * metrics.iqr);
             metrics.upperOuterFence = metrics.quartile3 + (3 * metrics.iqr);
             if (!metrics.lowerInnerFence) {
@@ -238,10 +300,13 @@ function makeDistroChart(settings) {
     !function prepareSettings() {
         //Set base settings
         chart.margin = chart.settings.margin;
+
         chart.divWidth = chart.settings.chartSize.width;
         chart.divHeight = chart.settings.chartSize.height;
-        chart.width = chart.divWidth - chart.margin.left - chart.margin.right;
-        chart.height = chart.divHeight - chart.margin.top - chart.margin.bottom;
+
+        chart.width = chart.settings.chartSize.width - chart.margin.left - chart.margin.right;
+        chart.height = chart.settings.chartSize.height - chart.margin.top - chart.margin.bottom;
+
 
         if (chart.settings.axisLabels) {
             chart.xAxisLable = chart.settings.axisLabels.xAxis;
@@ -285,6 +350,7 @@ function makeDistroChart(settings) {
             .innerTickSize(-chart.width + (chart.margin.right + chart.margin.left));
         chart.objs.yAxis.ticks(chart.objs.yAxis.ticks()*chart.settings.yTicks);
         chart.objs.xAxis = d3.svg.axis().scale(chart.xScale).orient("bottom").tickSize(5);
+
     }();
 
     /**
@@ -292,9 +358,18 @@ function makeDistroChart(settings) {
      * @returns {*}
      */
     chart.update = function () {
+        if (chart.settings.alignment != chart.settings._calignment) {
+            chart.rotateChart()
+        }
+
         // Update chart size based on view port size
-        chart.width = parseInt(chart.objs.chartDiv.style("width"), 10) - (chart.margin.left + chart.margin.right);
-        chart.height = parseInt(chart.objs.chartDiv.style("height"), 10) - (chart.margin.top + chart.margin.bottom);
+        if (chart.settings.alignment == "vertical") {
+            chart.height = parseInt(chart.objs.chartDiv.style("width"), 10) - (chart.margin.left + chart.margin.right);
+            chart.width = parseInt(chart.objs.chartDiv.style("height"), 10) - (chart.margin.top + chart.margin.bottom);
+        } else {
+            chart.width = parseInt(chart.objs.chartDiv.style("width"), 10) - (chart.margin.left + chart.margin.right);
+            chart.height = parseInt(chart.objs.chartDiv.style("height"), 10) - (chart.margin.top + chart.margin.bottom);
+        }
 
         // Update scale functions
         chart.xScale.rangeBands([0, chart.width]);
@@ -308,16 +383,25 @@ function makeDistroChart(settings) {
         }
 
         //Update axes
-        chart.objs.g.select('.x.axis').attr("transform", "translate(0," + chart.height + ")").call(chart.objs.xAxis)
-            .selectAll("text")
-            .attr("y", 5)
-            .attr("x", -5)
-            .attr("transform", "rotate(-45)")
-            .style("text-anchor", "end");
+        if (chart.settings.alignment == "vertical") {
+            chart.objs.g.select('.x.axis').attr("transform", "translate(0," + chart.height + ")").call(chart.objs.xAxis)
+                .selectAll("text")
+                .attr("y", -3)
+                .attr("x", -10)
+                .attr("transform", "rotate(-90)")
+                .style("text-anchor", "end");
+            chart.objs.g.select('.y.axis').call(chart.objs.yAxis.innerTickSize(chart.width));
+        } else {
+            chart.objs.g.select('.x.axis').attr("transform", "translate(0," + chart.height + ")").call(chart.objs.xAxis)
+                .selectAll("text")
+                .attr("y", 5)
+                .attr("x", -5)
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end");
+            chart.objs.g.select('.y.axis').call(chart.objs.yAxis.innerTickSize(-chart.width));
+        }
         chart.objs.g.select('.x.axis .label').attr("x", chart.width / 2);
-        chart.objs.g.select('.y.axis').call(chart.objs.yAxis.innerTickSize(-chart.width));
         chart.objs.g.select('.y.axis .label').attr("x", -chart.height / 2);
-        chart.objs.chartDiv.select('svg').attr("width", chart.width + (chart.margin.left + chart.margin.right)).attr("height", chart.height + (chart.margin.top + chart.margin.bottom));
 
         return chart;
     };
@@ -330,22 +414,24 @@ function makeDistroChart(settings) {
         chart.objs.mainDiv = d3.select(chart.settings.selector)
             .style("max-width", chart.divWidth + "px");
         // Add all the divs to make it centered and responsive
-        chart.objs.mainDiv.append("div")
+        chart.objs.innerDiv = chart.objs.mainDiv.append("div")
             .attr("class", "inner-wrapper")
-            .style("padding-bottom", (chart.divHeight / chart.divWidth) * 100 + "%")
+            .style("padding-bottom", (chart.divHeight / chart.divWidth) * 100 + "%");
+        chart.objs.innerDiv
             .append("div").attr("class", "outer-box")
             .append("div").attr("class", "inner-box");
+
         // Capture the inner div for the chart (where the chart actually is)
         chart.selector = chart.settings.selector + " .inner-box";
         chart.objs.chartDiv = d3.select(chart.selector);
         d3.select(window).on('resize.' + chart.selector, chart.update);
 
         // Create the svg
-        chart.objs.g = chart.objs.chartDiv.append("svg")
+        chart.objs.svg = chart.objs.chartDiv.append("svg")
             .attr("class", "chart-area")
             .attr("width", chart.width + (chart.margin.left + chart.margin.right))
-            .attr("height", chart.height + (chart.margin.top + chart.margin.bottom))
-            .append("g")
+            .attr("height", chart.height + (chart.margin.top + chart.margin.bottom));
+        chart.objs.g = chart.objs.svg.append("g")
             .attr("transform", "translate(" + chart.margin.left + "," + chart.margin.top + ")");
 
         // Create axes
@@ -363,7 +449,7 @@ function makeDistroChart(settings) {
             .attr("y", -42)
             .attr("x", -chart.height / 2)
             .attr("dy", ".71em")
-            .style("text-anchor", "middle")
+            .style("text-ancohor", "middle")
             .text(chart.yAxisLable);
 
         // Create tooltip div
