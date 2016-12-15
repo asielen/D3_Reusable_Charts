@@ -20,7 +20,6 @@
     <button onclick="chart1.violinPlots.hide();chart1.dataPlots.show({showPlot:true, plotType:'beeswarm',showBeanLines:false, colors:null});chart1.notchBoxes.hide();chart1.boxPlots.hide();">Beeswarm Plot</button>
     <button onclick="chart1.violinPlots.hide();chart1.dataPlots.show({showPlot:true, plotType:40, showBeanLines:false,colors:null});chart1.notchBoxes.hide();chart1.boxPlots.hide();">Scatter Plot</button>
     <button onclick="if(chart1.dataPlots.options.showLines){chart1.dataPlots.change({showLines:false});} else {chart1.dataPlots.change({showLines:['median','quartile1','quartile3']});}">Trend Lines</button>
-    <button onclick="chart1.rotateChart()">Rotate</button>
 </div>
 
 
@@ -36,8 +35,7 @@
             yName:'value',
             axisLabels: {xAxis: null, yAxis: 'Values'},
             selector:"#chart-distro1",
-            chartSize:{height:960, width:460},
-//            alignment: "vertical",
+            chartSize:{height:460, width:960},
             constrainExtremes:true});
         chart1.renderBoxPlot();
         chart1.renderDataPlots();
@@ -45,7 +43,6 @@
         chart1.renderViolinPlot({showViolinPlot:false});
 
     });
-//    chartSize:{height:460, width:960},
 </script>
 </body>
 </html>
