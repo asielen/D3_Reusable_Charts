@@ -17,6 +17,7 @@
  * @param [settings.chartSize={width:800, height:400}] The height and width of the chart itself (doesn't include the container)
  * @param [settings.margin={top: 15, right: 40, bottom: 40, left: 50}] The margins around the chart (inside the main div)
  * @param [settings.constrainExtremes=false] Should the y scale include outliers?
+ * @param settings.chartAlignment = 'horizontal' ('v' or 'vertical' will make the chart vertical anything else will be horizontal)
  * @returns {object} chart A chart object
  */
 function makeDistroChart(settings) {
@@ -35,6 +36,7 @@ function makeDistroChart(settings) {
         chartSize: {width: 800, height: 400},
         margin: {top: 15, right: 40, bottom: 40, left: 50},
         constrainExtremes: false,
+        chartAlignment: 'horizontal',
         color: d3.scale.category10()
     };
     for (var setting in settings) {
@@ -231,6 +233,33 @@ function makeDistroChart(settings) {
         }
     }();
 
+    function verticalChartPrepare() {
+        // if (chart.settings.scale === 'log') {
+        //     chart.xScale = d3.scale.log();
+        //     chart.xFormatter = logFormatNumber;
+        // } else {
+        //     chart.xScale = d3.scale.linear();
+        // }
+        //
+        // // Build Scale functions
+        // chart.xScale.range([chart.height, 0]).domain(chart.range).nice().clamp(true);
+        // chart.yScale = d3.scale.ordinal().domain(Object.keys(chart.groupObjs)).rangeBands([0, chart.width]);
+        //
+        // //Build Axes Functions
+        // chart.objs.xAxis = d3.svg.axis()
+        //     .scale(chart.yScale)
+        //     .orient("left")
+        //     .tickFormat(chart.yFormatter)
+        //     .outerTickSize(0)
+        //     .innerTickSize(-chart.width + (chart.margin.right + chart.margin.left));
+
+    }
+
+    function verticalChartUpdate() {
+
+    }
+
+
     /**
      * Prepare the chart settings and chart div and svg
      */
@@ -288,6 +317,7 @@ function makeDistroChart(settings) {
         chart.objs.yAxis.ticks(chart.objs.yAxis.ticks()*chart.settings.yTicks);
         chart.objs.xAxis = d3.svg.axis().scale(chart.xScale).orient("bottom").tickSize(5);
 
+
     }();
 
     /**
@@ -296,9 +326,9 @@ function makeDistroChart(settings) {
      */
     chart.update = function () {
         // Update chart size based on view port size
+        // - This doesn't change any direct attributes, just stores the variables for use in below calculations
         chart.width = parseInt(chart.objs.chartDiv.style("width"), 10) - (chart.margin.left + chart.margin.right);
         chart.height = parseInt(chart.objs.chartDiv.style("height"), 10) - (chart.margin.top + chart.margin.bottom);
-
 
         // Update scale functions
         chart.xScale.rangeBands([0, chart.width]);
@@ -323,6 +353,11 @@ function makeDistroChart(settings) {
         chart.objs.g.select('.x.axis .label').attr("x", chart.width / 2);
         chart.objs.g.select('.y.axis .label').attr("x", -chart.height / 2);
 
+        if (chart.settings.chartAlignment == 'vertical') {
+            verticalChartUpdate();
+            console.log("Vertical");
+        }
+
         return chart;
     };
 
@@ -330,6 +365,10 @@ function makeDistroChart(settings) {
      * Prepare the chart html elements
      */
     !function prepareChart() {
+        if (chart.settings.chartAlignment == 'vertical') {
+            verticalChartPrepare();
+        }
+
         // Build main div and chart div
         chart.objs.mainDiv = d3.select(chart.settings.selector)
             .style("max-width", chart.divWidth + "px");

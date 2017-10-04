@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <title></title>
     <link rel="stylesheet" type="text/css" href="distrochart.css">
-    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <!--<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>-->
+    <script src="../d3-local/d3-3.js" charset="utf-8"></script>
 </head>
 <body>
 <div class="chart-wrapper" id="chart-distro1"></div>
@@ -36,6 +37,7 @@
             axisLabels: {xAxis: null, yAxis: 'Values'},
             selector:"#chart-distro1",
             chartSize:{height:460, width:960},
+            chartAlignment: 'vertical',
             constrainExtremes:true});
         chart1.renderBoxPlot();
         chart1.renderDataPlots();

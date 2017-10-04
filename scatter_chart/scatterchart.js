@@ -43,6 +43,22 @@ function scatterchart() {
     svg.append("g").attr("class", "axis").attr("transform", "translate(0," + (h - padding) + ")").call(xAxis).selectAll("text").style("text-anchor", "end").attr("dx", "-.8em").attr("dy", ".15em").attr("transform", function (d) {
             return "rotate(-65)"
         });
+
     svg.append("g").attr("class", "axis").attr("transform", "translate(" + padding + ",0)").call(yAxis);
+
+    function calculateBag() {
+        var xy = {};
+        var yx = {};
+        var bagpoints = [];
+        for (var dp in dataset) {
+            //sort x min to max
+            //sort y min to max
+            //look for most extreme points
+            // 
+
+        }
+
+
+    }
 
 };

@@ -1,0 +1,9 @@
+chart1.objs.g.selectAll('.group').attr("transform", "rotate(90) translate(0,"+chart1.width+")")
+- rotate plots
+
+chart1.objs.g.selectAll('.y.axis').attr("transform", "rotate(90) translate(0,0)")
+- x axis
+
+chart1.objs.g.selectAll('.y.axis').attr("transform", "rotate(90) translate("+chart1.width+",-"+chart1.height+")")
+- y axis
+

@@ -5,7 +5,8 @@
     <title></title>
     <link rel="stylesheet" type="text/css" href="scatterchart.css">
     <!--<script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>-->
-    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <!--<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>-->
+    <script src="../d3-local/d3-3.js" charset="utf-8"></script>
 </head>
 <body>
 <div id="chart"></div>
@@ -16,10 +17,10 @@
     //Width and height (of the div)
     var w = 1200;
     var h = 1200;
-    var margin = {}
+    var margin = {};
     var padding = 50;
-    var color = d3.scale.category10()
-    var dataset
+    var color = d3.scale.category10();
+    var dataset;
     d3.csv('pppdata.csv', function (error, data) {
         data.forEach(function (d) {
             d.piece_count = +d.piece_count;
