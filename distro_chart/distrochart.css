@@ -27,6 +27,7 @@
 .chart-wrapper text {
   font-family: sans-serif;
   font-size: 13px;
+  fill: #000;
 }
 
 .chart-wrapper .axis path,
