@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" type="text/css" href="distrochart.css">
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+</head>
+<body>
+<div class="chart-wrapper" id="chart-distro1"></div>
+
+
+
+
+<script src="distrochart.js" charset="utf-8"></script>
+<script type="text/javascript">
+    var chart1;
+    d3.csv('data.csv', function(error, data) {
+        data.forEach(function (d) {d.value = +d.value;});
+
+        chart1 = makeDistroChart({
+            data:data,
+            xName:'date',
+            yName:'value',
+            axisLabels: {xAxis: null, yAxis: 'Values'},
+            selector:"#chart-distro1",
+            chartSize:{height:460, width:960},
+            constrainExtremes:true});
+        chart1.renderBoxPlot();
+        chart1.renderDataPlots();
+        chart1.renderNotchBoxes({showNotchBox:false});
+        chart1.renderViolinPlot({showViolinPlot:false});
+
+    });
+</script>
+</body>
+</html>
