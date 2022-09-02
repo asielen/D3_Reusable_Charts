@@ -29,26 +29,73 @@
   font-size: 13px;
 }
 
-.chart-wrapper .axis path,
-.chart-wrapper .axis line {
-    fill: none;
-    stroke: #888;
-    stroke-width: 2px;
-    shape-rendering: crispEdges;
-}
+  /*.bullet {*/
+  /*  font: 10px sans-serif;*/
+  /*}*/
 
-.chart-wrapper .y.axis .tick line {
-    stroke: lightgrey;
-    opacity: 0.6;
-    stroke-dasharray: 2,1;
-    stroke-width: 1;
-    shape-rendering: crispEdges;
+  /*.bullet .marker {*/
+  /*  stroke: #000;*/
+  /*  opacity: 0.3;*/
+  /*  stroke-dasharray: 2, 2;*/
+  /*  stroke-width: 2px;*/
+  /*}*/
 
-}
+  /*.bullet .tick line {*/
+  /*  stroke: #666;*/
+  /*  stroke-width: .5px;*/
+  /*}*/
 
-.chart-wrapper .x.axis .domain {
-  display: none;
-}
+  .pace-chart .target {
+    fill: #306223;
+  }
+
+  .pace-chart .target.yellow {
+    fill: #77652a;
+  }
+
+  .pace-chart .target.red {
+    fill: #4e1f24;
+  }
+
+  .pace-chart .result.s0 {
+    fill: #0d1864;
+  }
+
+  .pace-chart .result.s1 {
+    fill: #1e2764;
+  }
+
+  .pace-chart .result.s2 {
+    fill: #3d4875;
+  }
+
+
+
+  .pace-chart .title {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  .pace-chart .subtitle {
+    fill: #999;
+  }
+
+  .pace-chart .target.text {
+    font-size: 14px;
+    font-weight: bold;
+    fill: white;
+  }
+
+  .pace-chart .result.text {
+    font-size: 16px;
+    font-weight: bold;
+    fill: white;
+  }
+
+  /*.pace-chart .result.noshow {*/
+  /*  display: none;*/
+  /*}*/
+
 
 .chart-wrapper div.tooltip {
     position: absolute;
@@ -60,83 +107,4 @@
     border-radius: 1px;
     pointer-events: none;
     opacity: 0.7;
-}
-
-/*Box Plot*/
-.chart-wrapper .box-plot .box {
-    fill-opacity: 0.4;
-    stroke-width: 2;
-}
-.chart-wrapper .box-plot line {
-    stroke-width: 2px;
-}
-.chart-wrapper .box-plot circle {
-    fill: white;
-    stroke: black;
-}
-
-.chart-wrapper .box-plot .median {
-    stroke: black;
-}
-
-.chart-wrapper .box-plot circle.median {
-    /*the script makes the circles the same color as the box, you can override this in the js*/
-    fill: white !important;
-}
-
-.chart-wrapper .box-plot .mean {
-    stroke: white;
-    stroke-dasharray: 2,1;
-    stroke-width: 1px;
-}
-
-@media (max-width:500px){
-    .chart-wrapper .box-plot circle {display: none;}
-}
-
-/*Violin Plot*/
-
-.chart-wrapper .violin-plot .area {
-    shape-rendering: geometricPrecision;
-    opacity: 0.4;
-}
-
-.chart-wrapper .violin-plot .line {
-    fill: none;
-    stroke-width: 2px;
-    shape-rendering: geometricPrecision;
-}
-
-/*Notch Plot*/
-.chart-wrapper .notch-plot .notch {
-    fill-opacity: 0.4;
-    stroke-width: 2;
-}
-
-/* Point Plots*/
-.chart-wrapper .points-plot .point {
-    stroke: black;
-    stroke-width: 1px;
-}
-
-.chart-wrapper .metrics-lines {
-    stroke-width: 4px;
-}
-
-/* Non-Chart Styles for demo*/
-.chart-options  {
-    min-width: 200px;
-    font-size: 13px;
-    font-family: sans-serif;
-}
-.chart-options button {
-    margin: 3px;
-    padding: 3px;
-    font-size: 12px;
-}
-.chart-options p {
-    display: inline;
-}
-@media (max-width:500px){
-    .chart-options p {display: block;}
 }

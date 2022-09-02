@@ -3,35 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <title></title>
-    <link rel="stylesheet" type="text/css" href="distrochart.css">
-    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <link rel="stylesheet" type="text/css" href="pacingchart.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
-<div class="chart-wrapper" id="chart-distro1"></div>
+<div class="chart-wrapper" id="chart-pacing"></div>
 
 
-
-
-<script src="distrochart.js" charset="utf-8"></script>
+<script src="pacingchart.js" charset="utf-8"></script>
 <script type="text/javascript">
-    var chart1;
-    d3.csv('data.csv', function(error, data) {
-        data.forEach(function (d) {d.value = +d.value;});
+    let chart1;
+    d3.csv('data.csv', function(data) {
+        data.TARGET = +data.TARGET;
+        data.YELLOW_THRESHOLD = +data.YELLOW_THRESHOLD;
+        data.RED_THRESHOLD = +data.RED_THRESHOLD;
+        data.AMOUNT = +data.AMOUNT;
+        data.PROJECTED_AMOUNT = +data.PROJECTED_AMOUNT;
+        data.PREV_AMOUNT = +data.PREV_AMOUNT;
+        data.PREV_PROJECTED_AMOUNT = +data.PREV_PROJECTED_AMOUNT;
+        return data;
+    }).then( function(data) {
+        chart1 = makePacingChart({
+            data: data,
+            targetsCols: [['RED_THRESHOLD','Red'],['YELLOW_THRESHOLD','Yellow'],'TARGET'], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
+            targetsMarkersCols: [],
+            resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected'],'FINAL_PROJECTED_AMOUNT'],
+            resultMarkersCols: ['PREV_AMOUNT', 'PREV_PROJECTED_AMOUNT'],
+            titleCols: ['DEAL_TYPE','FISCAL_QUARTER_LONG_NAME'], // First one is main, second one is subtitle, any others are ignored
+            selector: '#chart-pacing'
+        })
+        }
+    );
 
-        chart1 = makeDistroChart({
-            data:data,
-            xName:'date',
-            yName:'value',
-            axisLabels: {xAxis: null, yAxis: 'Values'},
-            selector:"#chart-distro1",
-            chartSize:{height:460, width:960},
-            constrainExtremes:true});
-        chart1.renderBoxPlot();
-        chart1.renderDataPlots();
-        chart1.renderNotchBoxes({showNotchBox:false});
-        chart1.renderViolinPlot({showViolinPlot:false});
 
-    });
+
+
 </script>
 </body>
 </html>
+
+<!--<script src="pacingchart.js" charset="utf-8"></script>-->
+<!--<script type="text/javascript">-->
+<!--    var chart1;-->
+<!--    d3.csv('data.csv', function(error, data) {-->
+<!--        data.forEach(function (d) {d.value = +d.value;});-->
+
+<!--        chart1 = makePacingChart({-->
+<!--            data:data,-->
+<!--            xName:'date',-->
+<!--            yName:'value',-->
+<!--            axisLabels: {xAxis: null, yAxis: 'Values'},-->
+<!--            selector:"#chart-distro1",-->
+<!--            chartSize:{height:460, width:960},-->
+<!--            constrainExtremes:true});-->
+<!--        chart1.renderBoxPlot();-->
+<!--    });-->
+<!--</script>-->
+<!--</body>-->
+<!--</html>-->
