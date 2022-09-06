@@ -2,14 +2,13 @@
 
 /*Nested divs for responsiveness*/
 .chart-wrapper {
-    max-width: 800px;  /*Overwritten by the JS*/
-    min-width: 304px;
+    /*max-width: 800px;  !*Overwritten by the JS*!*/
+    /*min-width: 304px;*/
     margin-bottom: 8px;
     background-color: #FAF7F7;
 }
 .chart-wrapper .inner-wrapper {
     position: relative;
-    padding-bottom: 50%; /*Overwritten by the JS*/
     width: 100%;
 }
 .chart-wrapper .outer-box {
@@ -26,7 +25,44 @@
 
 .chart-wrapper text {
   font-family: sans-serif;
-  font-size: 13px;
+  display: none;
+}
+
+.chart-wrapper .targets .w25 text {
+    font-size: 8px;
+    display: initial;
+}
+
+.chart-wrapper .targets .w50 text {
+    font-size: 14px;
+}
+
+.chart-wrapper .targets .w100 text {
+    font-size: 24px;
+}
+
+.chart-wrapper .results svg.last, .chart-wrapper .results svg.last svg {
+    overflow: auto;
+}
+.chart-wrapper .results .last text {
+    display: initial;
+    fill: #475560;
+}
+.chart-wrapper .results .w25 text {
+    font-size: 8px;
+    display: initial;
+}
+.chart-wrapper .results .w50 text {
+    font-size: 12px;
+}
+.chart-wrapper .results .w100 text {
+    font-size: 14px;
+}
+.chart-wrapper .results .w150 text {
+    font-size: 18px;
+}
+.chart-wrapper .results .w250 text {
+    font-size: 22px;
 }
 
   /*.bullet {*/
@@ -74,37 +110,58 @@
   .pace-chart .title {
     font-size: 14px;
     font-weight: bold;
+    display: initial;
   }
 
   .pace-chart .subtitle {
     fill: #999;
+    font-size: 12px;
+    display: initial;
   }
 
   .pace-chart .target.text {
-    font-size: 14px;
+    /*font-size: 14px;*/
     font-weight: bold;
     fill: white;
   }
 
   .pace-chart .result.text {
-    font-size: 16px;
+    /*font-size: 16px;*/
     font-weight: bold;
     fill: white;
   }
-
-  /*.pace-chart .result.noshow {*/
-  /*  display: none;*/
-  /*}*/
 
 
 .chart-wrapper div.tooltip {
     position: absolute;
     text-align: left;
-    padding: 3px;
+    padding: 5px;
     font: 12px sans-serif;
-    background: lightcyan;
-    border: 0px;
-    border-radius: 1px;
+    background: #fff;
+    box-shadow: 5px 5px 11px -5px rgba(0,0,0,0.67);
+    border: 0;
+    border-radius: 6px;
     pointer-events: none;
-    opacity: 0.7;
+    opacity: 0.8;
 }
+
+.chart-wrapper div.tooltip .chart.title {
+    font-size: 14px;
+}
+
+.chart-wrapper div.tooltip .title, .chart-wrapper div.tooltip .title {
+    font-weight: bold;
+}
+
+.chart-wrapper .marker {
+    stroke: #887e7e;
+    opacity: 0.9;
+    stroke-dasharray: 1, 2;
+    stroke-width: 2px;
+  }
+
+.chart-wrapper div.tooltip .selected {
+    font-style: italic;
+    background: wheat;
+    font-size: 14px;
+  }

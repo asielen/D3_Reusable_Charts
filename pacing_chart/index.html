@@ -26,9 +26,9 @@
         chart1 = makePacingChart({
             data: data,
             targetsCols: [['RED_THRESHOLD','Red'],['YELLOW_THRESHOLD','Yellow'],'TARGET'], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
-            targetsMarkersCols: [],
+            targetsMarkersCols: ['PREV_PROJECTED_AMOUNT'],
             resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected'],'FINAL_PROJECTED_AMOUNT'],
-            resultMarkersCols: ['PREV_AMOUNT', 'PREV_PROJECTED_AMOUNT'],
+            resultMarkersCols: ['PREV_AMOUNT'],
             titleCols: ['DEAL_TYPE','FISCAL_QUARTER_LONG_NAME'], // First one is main, second one is subtitle, any others are ignored
             selector: '#chart-pacing'
         })
@@ -41,23 +41,3 @@
 </script>
 </body>
 </html>
-
-<!--<script src="pacingchart.js" charset="utf-8"></script>-->
-<!--<script type="text/javascript">-->
-<!--    var chart1;-->
-<!--    d3.csv('data.csv', function(error, data) {-->
-<!--        data.forEach(function (d) {d.value = +d.value;});-->
-
-<!--        chart1 = makePacingChart({-->
-<!--            data:data,-->
-<!--            xName:'date',-->
-<!--            yName:'value',-->
-<!--            axisLabels: {xAxis: null, yAxis: 'Values'},-->
-<!--            selector:"#chart-distro1",-->
-<!--            chartSize:{height:460, width:960},-->
-<!--            constrainExtremes:true});-->
-<!--        chart1.renderBoxPlot();-->
-<!--    });-->
-<!--</script>-->
-<!--</body>-->
-<!--</html>-->
