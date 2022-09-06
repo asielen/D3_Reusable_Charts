@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" type="text/css" href="pacingchart.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+<div class="chart-wrapper" id="chart-pacing"></div>
+
+
+<script src="pacingchart.js" charset="utf-8"></script>
+<script type="text/javascript">
+    let chart1;
+    d3.csv('data.csv', function(data) {
+        data.TARGET = +data.TARGET;
+        data.YELLOW_THRESHOLD = +data.YELLOW_THRESHOLD;
+        data.RED_THRESHOLD = +data.RED_THRESHOLD;
+        data.AMOUNT = +data.AMOUNT;
+        data.PROJECTED_AMOUNT = +data.PROJECTED_AMOUNT;
+        data.PREV_AMOUNT = +data.PREV_AMOUNT;
+        data.PREV_PROJECTED_AMOUNT = +data.PREV_PROJECTED_AMOUNT;
+        return data;
+    }).then( function(data) {
+        chart1 = makePacingChart({
+            data: data,
+            targetsCols: [['RED_THRESHOLD','Red'],['YELLOW_THRESHOLD','Yellow'],'TARGET'], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
+            targetsMarkersCols: ['PREV_PROJECTED_AMOUNT'],
+            resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected'],'FINAL_PROJECTED_AMOUNT'],
+            resultMarkersCols: ['PREV_AMOUNT'],
+            titleCols: ['DEAL_TYPE','FISCAL_QUARTER_LONG_NAME'], // First one is main, second one is subtitle, any others are ignored
+            selector: '#chart-pacing'
+        })
+        }
+    );
+
+
+
+
+</script>
+</body>
+</html>

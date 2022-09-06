@@ -1,0 +1,167 @@
+/*Primary Chart*/
+
+/*Nested divs for responsiveness*/
+.chart-wrapper {
+    /*max-width: 800px;  !*Overwritten by the JS*!*/
+    /*min-width: 304px;*/
+    margin-bottom: 8px;
+    background-color: #FAF7F7;
+}
+.chart-wrapper .inner-wrapper {
+    position: relative;
+    width: 100%;
+}
+.chart-wrapper .outer-box {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+.chart-wrapper .inner-box {
+    width: 100%;
+    height: 100%;
+}
+
+.chart-wrapper text {
+  font-family: sans-serif;
+  display: none;
+}
+
+.chart-wrapper .targets .w25 text {
+    font-size: 8px;
+    display: initial;
+}
+
+.chart-wrapper .targets .w50 text {
+    font-size: 14px;
+}
+
+.chart-wrapper .targets .w100 text {
+    font-size: 24px;
+}
+
+.chart-wrapper .results svg.last, .chart-wrapper .results svg.last svg {
+    overflow: auto;
+}
+.chart-wrapper .results .last text {
+    display: initial;
+    fill: #475560;
+}
+.chart-wrapper .results .w25 text {
+    font-size: 8px;
+    display: initial;
+}
+.chart-wrapper .results .w50 text {
+    font-size: 12px;
+}
+.chart-wrapper .results .w100 text {
+    font-size: 14px;
+}
+.chart-wrapper .results .w150 text {
+    font-size: 18px;
+}
+.chart-wrapper .results .w250 text {
+    font-size: 22px;
+}
+
+  /*.bullet {*/
+  /*  font: 10px sans-serif;*/
+  /*}*/
+
+  /*.bullet .marker {*/
+  /*  stroke: #000;*/
+  /*  opacity: 0.3;*/
+  /*  stroke-dasharray: 2, 2;*/
+  /*  stroke-width: 2px;*/
+  /*}*/
+
+  /*.bullet .tick line {*/
+  /*  stroke: #666;*/
+  /*  stroke-width: .5px;*/
+  /*}*/
+
+  .pace-chart .target {
+    fill: #306223;
+  }
+
+  .pace-chart .target.yellow {
+    fill: #77652a;
+  }
+
+  .pace-chart .target.red {
+    fill: #4e1f24;
+  }
+
+  .pace-chart .result.s0 {
+    fill: #0d1864;
+  }
+
+  .pace-chart .result.s1 {
+    fill: #1e2764;
+  }
+
+  .pace-chart .result.s2 {
+    fill: #3d4875;
+  }
+
+
+
+  .pace-chart .title {
+    font-size: 14px;
+    font-weight: bold;
+    display: initial;
+  }
+
+  .pace-chart .subtitle {
+    fill: #999;
+    font-size: 12px;
+    display: initial;
+  }
+
+  .pace-chart .target.text {
+    /*font-size: 14px;*/
+    font-weight: bold;
+    fill: white;
+  }
+
+  .pace-chart .result.text {
+    /*font-size: 16px;*/
+    font-weight: bold;
+    fill: white;
+  }
+
+
+.chart-wrapper div.tooltip {
+    position: absolute;
+    text-align: left;
+    padding: 5px;
+    font: 12px sans-serif;
+    background: #fff;
+    box-shadow: 5px 5px 11px -5px rgba(0,0,0,0.67);
+    border: 0;
+    border-radius: 6px;
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+.chart-wrapper div.tooltip .chart.title {
+    font-size: 14px;
+}
+
+.chart-wrapper div.tooltip .title, .chart-wrapper div.tooltip .title {
+    font-weight: bold;
+}
+
+.chart-wrapper .marker {
+    stroke: #887e7e;
+    opacity: 0.9;
+    stroke-dasharray: 1, 2;
+    stroke-width: 2px;
+  }
+
+.chart-wrapper div.tooltip .selected {
+    font-style: italic;
+    background: wheat;
+    font-size: 14px;
+  }
