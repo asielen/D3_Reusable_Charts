@@ -6,14 +6,6 @@
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
-            <mapping local="$PROJECT_DIR$/pacing_chart" web="/pacing/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="pi@192.168.0.25:22">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
