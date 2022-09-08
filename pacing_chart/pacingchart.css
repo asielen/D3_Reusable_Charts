@@ -41,13 +41,14 @@
     font-size: 24px;
 }
 
-.chart-wrapper .results svg.last, .chart-wrapper .results svg.last svg {
-    overflow: auto;
-}
-.chart-wrapper .results .last text {
-    display: initial;
-    fill: #475560;
-}
+/*.chart-wrapper .results svg.last, .chart-wrapper .results svg.last svg {*/
+/*    overflow: auto;*/
+/*}*/
+/*.chart-wrapper .results .last text {*/
+/*    display: initial;*/
+/*    fill: #475560;*/
+/*}*/
+
 .chart-wrapper .results .w25 text {
     font-size: 8px;
     display: initial;
@@ -63,6 +64,12 @@
 }
 .chart-wrapper .results .w250 text {
     font-size: 22px;
+}
+
+.chart-wrapper text.summary {
+    display: initial;
+    font-weight: bold;
+    font-size: 14px
 }
 
   /*.bullet {*/
@@ -105,6 +112,19 @@
     fill: #3d4875;
   }
 
+  .pace-chart .results-summary rect {
+    fill: #cde5fb;
+  }
+  .pace-chart .results-summary text {
+    display: initial;
+  }
+
+  .pace-chart .targets-summary rect {
+    fill: #cde5fb;
+  }
+  .pace-chart .targets-summary text {
+    display: initial;
+  }
 
 
   .pace-chart .title {

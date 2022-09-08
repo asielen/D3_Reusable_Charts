@@ -30,7 +30,11 @@
             resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected'],'FINAL_PROJECTED_AMOUNT'],
             resultMarkersCols: ['PREV_AMOUNT'],
             titleCols: ['DEAL_TYPE','FISCAL_QUARTER_LONG_NAME'], // First one is main, second one is subtitle, any others are ignored
-            selector: '#chart-pacing'
+            selector: '#chart-pacing',
+            cumulativeResults: false,
+            cumulativeTargets: true,
+            summarizeResults: true,
+            summarizeTargets: true
         })
         }
     );

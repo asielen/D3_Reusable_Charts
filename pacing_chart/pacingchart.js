@@ -1,7 +1,8 @@
 /**
- * @fileOverview A D3 based chart for tracking pacing against goals. Variation of a bullet chart.
+ * @fileOverview A D3 based chart for tracking progress against goals. Variation of a bullet chart.
  * @version 1.0
  */
+
 /**
  * Creates a pacing chart
  * @param settings Configuration options for the base plot
@@ -13,16 +14,23 @@
  * @param [settings.resultsMarkersCols] The name of the columns used to define the results markers. It can be defined as an array of strings or an array of arrays where each subarray includes the column name and a display name
  * @param [settings.titleCols] Array where the first column name is used as a title, the second (optional) one is used as a subtitle. NOTE: Title must be unique, subtitle does not need to be
  * @param settings.chartWidth=500 The Max width of each chart within  the collection of charts
- * @param settings.barHeight=25 The height of each bar, each chart is two stacked charts to this value x2 is the total height of each subchart
- * @param [settings.constrainToTarget=false] By default if the results are bigger than the target, the target will scale down and the results will drive the max width. Setting this to true will keep the results as 100% and the target will expand beyond the end. This reduces the max width of all charts to allow for overages
- * @param [settings.constrainToTargetAdj=10] If constrainToTarget is True, this will adjust how much space to give overages
+ * @param settings.barHeight=35 The height of each bar, each chart is two stacked charts to this value x2 is the total height of each subchart
+ * @param settings.titlePadding=100 How much space to the left of the charts should be allocated to the title. The bar chart portion is adjusted down to the remaining space
+ * @param settings.lowerSummaryPadding=20 How much space to add below the charts to allow for results if the results exceed the end of the chart
+ * @param settings.minWidthForPercent=100 The minimum numbers of pixels a result bar will be for the percent to be shown. Below this threshold, only the value is rendered
+ * @param settings.cumulativeTargets=true If true, the targets are subsets of each other ie. the largest target is the total target. If false, the total target is the sum of all the targets.
+ * @param settings.cumulativeResults=true If true, the results are subsets of each other ie. the largest result is the total result. If false, the total result is the sum of all the results.
+ * @param settings.summarizeTargets=false If true, show a separate bar above the targets that is a sum of all the individual targets, mostly useful when paired with cumulativeTargets=false
+ * @param settings.summarizeResults=false If true, show a separate bar above the results that is a sum of all the individual results, mostly useful when paired with cumulativeResults=false
  * @returns {object} chart A chart object
  */
 
 /**
  * Additional Settings that can be set post creation on the returned chart object.
- * chart.formatterValue a function defining how numbers should be formatted
- * chart.formatterPercent a function defining how percents should be formatted
+ * @param chart.formatterValue - Takes a number and formats it. ie 4500000 -> 4.5M
+ * @param chart.formatterPercent - Takes a percent and formats it. ie 23.454234% -> 23.5%
+ * @param chart.formatterValueTooltip - Takes a number and formats it. ie 4500000 -> 4.5M. Separate from formatterValue to allow for flexibility in the tooltip
+ * @param chart.tooltipHover - Returns a html text string that populates the hovertool tip.
  */
 
 function makePacingChart(settings) {
@@ -32,22 +40,23 @@ function makePacingChart(settings) {
     // Defaults
     chart.settings = {
         data: null,
-        targetsCols: [], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
+        selector: null,
+        targetsCols: [],
         targetsMarkersCols: [],
         resultsCols: [],
         resultMarkersCols: [],
-        titleCols: [], // First one is main, second one is subtitle, any others are ignored
-        selector: null,
+        titleCols: [],
         chartWidth: 500,
         barHeight: 35,
-        titleSpacing: 100,
-        minWidthPercent: 100,
+        titlePadding: 100,
+        lowerSummaryPadding: 20,
+        minWidthForPercent: 100,
+        cumulativeTargets: true,
+        cumulativeResults: true,
+        summarizeTargets: false,
+        summarizeResults: false,
         constrainToTarget: false, // Not implemented
-        constrainToTargetAdj: 0, // Not implemented
-        cumulativeTargets: true, // Not implemented
-        cumulativeResults: true, // Not implemented
-        summarizeTargets: false, // Not implemented
-        summarizeResults: false, // Not implemented
+        constrainToTargetAdj: 50 // Not implemented
     };
 
     // Copy from function parameters to settings
@@ -55,7 +64,7 @@ function makePacingChart(settings) {
         chart.settings[setting] = settings[setting]
     }
 
-    chart.formaterValue = (d) => {
+    chart.formatterValue = (d) => {
         // If no decimals then format without the decimals
         let dmod = Math.ceil(Math.log10(d + 1)) % 3;
         if (dmod === 0) {
@@ -66,7 +75,7 @@ function makePacingChart(settings) {
         }
     }
 
-    chart.formaterValueToolTip = (d) => {
+    chart.formatterValueToolTip = (d) => {
         // ALways return at least 1 decimal in abbreviated view
         let dmod = Math.ceil(Math.log10(d + 1))%3;
         if (dmod === 0) {
@@ -77,7 +86,7 @@ function makePacingChart(settings) {
         }
     }
 
-    chart.formaterPercent = (d) => {
+    chart.formatterPercent = (d) => {
         // If no decimals then format without the decimals
         if ((d*100) % 1 !== 0) {
             return d3.format(",.2%")(d);
@@ -114,11 +123,11 @@ function makePacingChart(settings) {
             } else {
                 target_total += target.value
             }
-            target_string += "<span class='"+selected+"'><span class='target title'>"+target.name+"</span> : <span class='target value '>"+chart.formaterValueToolTip(target.value)+"</span></span><br \>"
+            target_string += "<span class='"+selected+"'><span class='target title'>"+target.name+"</span> : <span class='target value '>"+chart.formatterValueToolTip(target.value)+"</span></span><br \>"
             selected = ""
         }
         if (groupObj.metrics.targets.length > 1) {
-            tooltipString += " "+chart.formaterValueToolTip(target_total)+"<br \>"
+            tooltipString += " "+chart.formatterValueToolTip(target_total)+"<br \>"
         } else {
             tooltipString += "<br \>"
         }
@@ -126,7 +135,7 @@ function makePacingChart(settings) {
 
         for (const target of groupObj.metrics.targetsMarkers) {
             if (event.name === target.name) {selected = "selected"}
-            tooltipString += "<span class='"+selected+"'><span class='target-metrics title '>> "+target.name+"</span> : <span class='target-metrics value '>"+chart.formaterValueToolTip(target.value)+"</span></span><br \>"
+            tooltipString += "<span class='"+selected+"'><span class='target-metrics title '>> "+target.name+"</span> : <span class='target-metrics value '>"+chart.formatterValueToolTip(target.value)+"</span></span><br \>"
             selected = ""
         }
 
@@ -136,16 +145,16 @@ function makePacingChart(settings) {
         let result_string = ""
         for (const result of groupObj.metrics.results) {
             if (event.name === result.name) {selected = "selected"}
-            if (chart.settings.cumulativeTargets) {
-                if (result.value > result_total) {result_total = result.value}
+            if (chart.settings.cumulativeResults) {
+                if (result.value > result_total) {result_total = +result.value}
             } else {
-                result_total += result.value
+                result_total += +result.value
             }
-            result_string += "<span class='"+selected+"'><span class='result title '>"+result.name+"</span> : <span class='result value '>"+chart.formaterValueToolTip(result.value)+" | "+chart.formaterPercent(result.percent_to_target)+"</span></span><br \>"
+            result_string += "<span class='"+selected+"'><span class='result title '>"+result.name+"</span> : <span class='result value '>"+chart.formatterValueToolTip(result.value)+" | "+chart.formatterPercent(result.percent_to_target)+"</span></span><br \>"
             selected = ""
         }
         if (groupObj.metrics.results.length > 1) {
-            tooltipString += " "+chart.formaterValueToolTip(result_total)+"<br \>"
+            tooltipString += " "+chart.formatterValueToolTip(result_total)+"<br \>"
         } else {
             tooltipString += "<br \>"
         }
@@ -153,7 +162,7 @@ function makePacingChart(settings) {
 
         for (const result of groupObj.metrics.resultsMarkers) {
             if (event.name === result.name) {selected = "selected"}
-            tooltipString += "<span class='"+selected+"'><span class='result-marketer title '>> "+result.name+"</span> : <span class='result-marker value '>"+chart.formaterValueToolTip(result.value)+" | "+chart.formaterPercent(result.percent_to_target)+"</span></span><br \>"
+            tooltipString += "<span class='"+selected+"'><span class='result-marketer title '>> "+result.name+"</span> : <span class='result-marker value '>"+chart.formatterValueToolTip(result.value)+" | "+chart.formatterPercent(result.percent_to_target)+"</span></span><br \>"
             selected = ""
         }
         return function () {
@@ -167,10 +176,11 @@ function makePacingChart(settings) {
      * Prepare the chart settings and chart div and svg
      */
     !function prepareSettings() {
+        chart.width = chart.settings.chartWidth;
+        chart.height = (chart.settings.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults) + chart.settings.lowerSummaryPadding)
+        chart.barWidth = chart.settings.chartWidth - chart.settings.titlePadding;
+        if (chart.settings.constrainToTarget) {chart.barWidth -= chart.settings.constrainToTargetAdj}
         chart.barHeight = chart.settings.barHeight;
-        chart.width = chart.settings.chartWidth// - chart.margin.left - chart.margin.right;
-        chart.barWidth = chart.width - chart.settings.titleSpacing;
-        chart.height = (chart.barHeight * (2+chart.settings.summarizeTargets+chart.settings.summarizeResults) + 20) // - chart.margin.top - chart.margin.bottom; // This is for a single bar
     }();
 
     function makeSafeForCSS(name) {
@@ -299,8 +309,8 @@ function makePacingChart(settings) {
     chart.update = function (groupObjs) {
         g = groupObjs;
         // Update Settings
-        chart.width = chart.settings.chartWidth // Width includes width of title text and space for end text
-        chart.height = (chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))// - chart.margin.top - chart.margin.bottom;
+        // chart.width = chart.settings.chartWidth // Width includes width of title text and space for end text
+        // chart.height = (chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))// - chart.margin.top - chart.margin.bottom;
 
         function calcMethods(metrics) {
             let methods = { //These are the functions to convert raw data to position
@@ -319,7 +329,7 @@ function makePacingChart(settings) {
                 // If this is the case, we may have ranges go over and will need to clamp the data.
                 // with the constrainToTargetAdj setting, the max of the bar can be reduced by a percentage to give some space for data larger than the target
                 methods.xScale = d3.scaleLinear()
-                    .domain([0, metrics.targetsMax*(1+chart.settings.constrainToTargetAdj)])
+                    .domain([0, metrics.targetsMax]) // * (1+chart.settings.constrainToTargetAdj)
                     .range([0, chart.barWidth]);
             }
 
@@ -333,10 +343,9 @@ function makePacingChart(settings) {
                 };
             })(methods.xScale)
 
-            const calcPreviousWidth = (scaleFunc, values) => {
+            const calcPreviousWidth = (scaleFunc, values, cumulative) => {
                 return (n,i) => {
-                    if (i > 0 && i <= values.length - 1) { // This may need to be reversed to i+1
-                        // Current - Previous
+                    if (i > 0 && i <= values.length - 1 && cumulative) {
                         return Math.abs(scaleFunc(n.value) - scaleFunc(values[i - 1].value));
                     } else {
                         return methods.calcWidth(n.value);
@@ -344,15 +353,15 @@ function makePacingChart(settings) {
                 };
             }
 
-            methods.calcPreviousTargetWidth = calcPreviousWidth(methods.xScale, metrics.targets);
-            methods.calcPreviousResultWidth = calcPreviousWidth(methods.xScale, metrics.results);
+            methods.calcPreviousTargetWidth = calcPreviousWidth(methods.xScale, metrics.targets, chart.settings.cumulativeTargets);
+            methods.calcPreviousResultWidth = calcPreviousWidth(methods.xScale, metrics.results, chart.settings.cumulativeResults);
 
-            methods.calcTargetMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titleSpacing};
-            methods.calcResultMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titleSpacing};
+            methods.calcTargetMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
+            methods.calcResultMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
 
-            const calcPreviousX = (scaleFunc, values) => {
+            const calcPreviousX = (scaleFunc, values, cumulative) => {
                 return function(d, i) {
-                    let x = chart.settings.titleSpacing;
+                    let x = chart.settings.titlePadding;
                     if (i > 0 && i <= values.length - 1) {
                         return x + scaleFunc(values[i - 1].value);
                     } else {
@@ -361,8 +370,26 @@ function makePacingChart(settings) {
                 };
             }
 
-            methods.calcPreviousTargetX = calcPreviousX(methods.xScale, metrics.targets)
-            methods.calcPreviousResultX = calcPreviousX(methods.xScale, metrics.results)
+            methods.calcPreviousTargetX = calcPreviousX(methods.xScale, metrics.targets, chart.settings.cumulativeTargets);
+            methods.calcPreviousResultX = calcPreviousX(methods.xScale, metrics.results, chart.settings.cumulativeResults);
+
+            const calcCumPreviousX = (scaleFunc, values) => {
+                return function(d,i) {
+                    let c = chart.settings.titlePadding;
+                    if (i > 0 && i <= values.length - 1) {
+                        // For cumulative need to add the previous x with the previous width. Not just the previous width
+                        for (let j = i-1; j >= 0; j--) {
+                            c += scaleFunc(values[j].value)
+                        }
+                        return c;
+                    } else {
+                        return c;
+                    }
+                };
+            }
+
+            methods.calcPreviousTargetX = chart.settings.cumulativeTargets ? calcPreviousX(methods.xScale, metrics.targets) : calcCumPreviousX(methods.xScale, metrics.targets);
+            methods.calcPreviousResultX = chart.settings.cumulativeResults ? calcPreviousX(methods.xScale, metrics.results) : calcCumPreviousX(methods.xScale, metrics.results);
 
             // Formatting Methods
 
@@ -384,8 +411,8 @@ function makePacingChart(settings) {
             }
 
             methods.targetTextLabel = (d, i) => {
-                // Wrapper function to keep the API the same and so custom formaters don't need to call d.value just d
-                return chart.formaterValue(d.value);
+                // Wrapper function to keep the API the same and so custom formatters don't need to call d.value just d
+                return chart.formatterValue(d.value);
             }
 
             methods.targetTextFormat = (d,i) => {
@@ -398,6 +425,12 @@ function makePacingChart(settings) {
                     return_text += " " + makeSafeForCSS(d.name);
                 }
                 return return_text;
+            }
+
+            methods.targetsYPos = (d,i) => {
+                let y = 0;
+                if (chart.settings.summarizeTargets) {y+=chart.barHeight}
+                return y
             }
 
             // Results
@@ -427,11 +460,11 @@ function makePacingChart(settings) {
                 // If this is the last item, and it is more than 80%, Only show the number
                 // d is the metric and i is the index of that item
                 // let perc = d.value / metrics.targetsMax
-                let return_text = chart.formaterValue(d.value);
+                let return_text = chart.formatterValue(d.value);
                 let width = methods.calcPreviousResultWidth(d, i);
-                if (i === metrics.resultsLastIndex || width >= chart.settings.minWidthPercent) {
+                if (width >= chart.settings.minWidthForPercent) {
                     // Append percentage if there is room
-                    return_text += " (" + chart.formaterPercent(d.percent_to_target) + ")";
+                    return_text += " (" + chart.formatterPercent(d.percent_to_target) + ")";
                 }
                 return return_text;
             }
@@ -443,25 +476,21 @@ function makePacingChart(settings) {
             methods.resultTextXPos = (d,i) => {
                 // If this is the last item, adjust the x to the end of the bar rather than on the bar.
                 // Otherwise, find the middle of the bar, to do this we need the end of the previous bar and the end of this bar
-                if (i === metrics.resultsLastIndex) {
-                    if (methods.resultsOverflowCheck(d,i)) {return methods.calcPreviousResultWidth(d,i) - 5}
-                    return methods.calcPreviousResultWidth(d,i) + 5; // 5 = padding between end of bar and text
-                } else {
-                    return "50%"
-                }
+                return "50%"
             }
 
             methods.resultTextYPos = (d,i) => {
                 // If this is the last item, adjust the x to the end of the bar rather than on the bar.
                 // Otherwise, find the middle of the bar, to do this we need the end of the previous bar and the end of this bar
-                if (i === metrics.resultsLastIndex && methods.resultsOverflowCheck(d,i)) {
-                    return chart.barHeight + 10;
-                } else {
-                    return "50%"
-                }
+                return "50%"
             }
 
-
+            methods.resultsYPos = (d,i) => {
+                let y = chart.barHeight;
+                if (chart.settings.summarizeTargets) {y+=chart.barHeight}
+                if (chart.settings.summarizeResults) {y+=chart.barHeight}
+                return y
+            }
 
             methods.resultTextFormat = (d,i) => {
                 // Change what text is shown depending on the size and order of the measures
@@ -475,10 +504,6 @@ function makePacingChart(settings) {
 
             methods.resultsTextAlign = (d, i) => {
                 // If it is the last item, align it to the left rather than the middle
-                if (i === metrics.resultsLastIndex) {
-                    if (methods.resultsOverflowCheck(d,i)) {return "end"}
-                    return "start";
-                }
                 return "middle";
             }
 
@@ -524,6 +549,7 @@ function makePacingChart(settings) {
                 .attr("class", chartObj.methods.targetBarFormat)
                 .attr("width", chartObj.methods.calcPreviousTargetWidth)
                 .attr("height", chart.barHeight)
+                .attr("y", chartObj.methods.targetsYPos)
                 .attr("x", chartObj.methods.calcPreviousTargetX)
 
             g.append("rect")
@@ -532,8 +558,6 @@ function makePacingChart(settings) {
                 .attr("height","100%")
 
             g.append("text")
-                // .attr("viewBox","-50 -50 100 100")
-                // .attr("preserveAspectRatio","xMidYMid slice")
                 .attr("class", chartObj.methods.targetTextFormat)
                 .attr("dy", '.1em')
                 .attr("y","50%")
@@ -543,9 +567,10 @@ function makePacingChart(settings) {
                 .text(function(d, i) {
                     return chartObj.methods.targetTextLabel(d);
                 });
+            let xtEnd = chartObj.svg.targets.node().getBBox().width + chart.settings.titlePadding;
+
 
             chartObj.svg.results = chartObj.g.append("g").attr("class","results");
-
             let r = chartObj.svg.results.selectAll("svg")
                 .data(chartObj.metrics.results)
                 .enter()
@@ -554,7 +579,7 @@ function makePacingChart(settings) {
                 .attr("width", chartObj.methods.calcPreviousResultWidth)
                 .attr("height", chart.barHeight)
                 .attr("x", chartObj.methods.calcPreviousResultX)
-                .attr("y",chart.barHeight)
+                .attr("y",chartObj.methods.resultsYPos)
 
             r.append("rect")
                 .attr("class", chartObj.methods.resultBarFormat)
@@ -569,9 +594,30 @@ function makePacingChart(settings) {
                 .attr("dominant-baseline","middle")
                 .attr("text-anchor", chartObj.methods.resultsTextAlign)
                 .text(function(d, i) {
-                    return chartObj.methods.resultTextLabel(d);
+                    return chartObj.methods.resultTextLabel(d,i);
                 });
 
+            let xEnd = chartObj.svg.results.node().getBBox().width + chart.settings.titlePadding;
+            if (xEnd > chart.barWidth - 75) {
+                chartObj.svg.results.append("text")
+                    .attr("class", "summary")
+                    .attr("dy", '.1em')
+                    .attr("y", function(d, i) {return (chartObj.methods.resultsYPos(d,i)+chart.barHeight) + 4 }) // Halfway through the second bar (results bar)
+                    .attr("x", xEnd)
+                    .attr("dominant-baseline", "hanging")
+                    .attr("text-anchor", "end")
+                    .text(chart.formatterValue(chartObj.metrics.resultsMax) + " (" + chart.formatterPercent(chartObj.metrics.resultsMax / chartObj.metrics.targetsMax) + ")")
+
+            } else {
+                chartObj.svg.results.append("text")
+                    .attr("class", "summary")
+                    .attr("dy", '.1em')
+                    .attr("y", function(d, i) {return (chartObj.methods.resultsYPos(d,i)+chart.barHeight/2)}) // Halfway through the second bar (results bar)
+                    .attr("x", xEnd + 5)
+                    .attr("dominant-baseline", "middle")
+                    .attr("text-anchor", "start")
+                    .text(chart.formatterValue(chartObj.metrics.resultsMax) + " (" + chart.formatterPercent(chartObj.metrics.resultsMax / chartObj.metrics.targetsMax) + ")")
+            }
 
             // Update the marker lines.
            chartObj.svg.targetsMarkers = chartObj.g.append("g").attr("class","targets-markers");
@@ -582,9 +628,10 @@ function makePacingChart(settings) {
                 .attr("class", chartObj.methods.targetMarkerFormat)
                 .attr("x1", chartObj.methods.calcTargetMarkerX)
                 .attr("x2", chartObj.methods.calcTargetMarkerX)
-                .attr("y1", 0)
-                .attr("y2", chart.barHeight)
-
+                .attr("y1", chartObj.methods.targetsYPos)
+                .attr("y2", function(d,i) {
+                    return chartObj.methods.targetsYPos(d,i)+chart.barHeight
+                })
 
             chartObj.svg.resultsMarkers = chartObj.g.append("g").attr("class","results-markers");
             let rm = chartObj.svg.resultsMarkers.selectAll("svg")
@@ -594,8 +641,80 @@ function makePacingChart(settings) {
                 .attr("class", chartObj.methods.resultMarkerFormat)
                 .attr("x1", chartObj.methods.calcResultMarkerX)
                 .attr("x2", chartObj.methods.calcResultMarkerX)
-                .attr("y1", chart.barHeight)
-                .attr("y2", chart.barHeight * 2) // 2x height is the bottom of the second bar
+                .attr("y1", chartObj.methods.resultsYPos)
+                .attr("y2", function(d,i) {
+                    return chartObj.methods.resultsYPos(d,i)+chart.barHeight
+                })
+
+            if (chart.settings.summarizeTargets) {
+                chartObj.svg.targetsSummary = chartObj.g.append("g").attr("class", "targets-summary");
+                let ts = chartObj.svg.targetsSummary.append("svg")
+                    .attr("class", "summary")
+                    .attr("width", xtEnd - chart.settings.titlePadding)
+                    .attr("height", chart.barHeight)
+                    .attr("x", chart.settings.titlePadding)
+                    .attr("y", "0")
+
+                ts.append("rect")
+                    .attr("class", "summary")
+                    .attr("width", "100%")
+                    .attr("height", "100%")
+
+                if ((xtEnd - chart.settings.titlePadding) <= chart.settings.minWidthForPercent) {
+                    // If the length of the bar won't fit the full percent metrics, put the label at the end
+                    chartObj.svg.resultsSummary.append("text")
+                        .attr("class", "summary")
+                        .attr("dy", '.1em')
+                        .attr("y", chart.barHeight * .5)
+                        .attr("x", xtEnd + 5)
+                        .attr("dominant-baseline", "middle")
+                        .attr("text-anchor", "start")
+                        .text(chart.formatterValue(chartObj.metrics.targetsMax))
+                } else {
+                    ts.append("text")
+                        .attr("dy", '.1em')
+                        .attr("y", "50%")
+                        .attr("x", "50%")
+                        .attr("dominant-baseline", "middle")
+                        .attr("text-anchor", "middle")
+                        .text(chart.formatterValue(chartObj.metrics.targetsMax))
+                }
+            }
+
+            if (chart.settings.summarizeResults) {
+                chartObj.svg.resultsSummary = chartObj.g.append("g").attr("class","results-summary");
+                let rs = chartObj.svg.resultsSummary.append("svg")
+                .attr("class", "summary")
+                .attr("width", xEnd-chart.settings.titlePadding)
+                .attr("height", chart.barHeight)
+                .attr("x", chart.settings.titlePadding)
+                .attr("y",function(d,i) {return chartObj.methods.targetsYPos(1,1)+chart.barHeight})
+
+                rs.append("rect")
+                .attr("class", "summary")
+                .attr("width","100%")
+                .attr("height","100%")
+
+                if ((xEnd-chart.settings.titlePadding) <= chart.settings.minWidthForPercent) {
+                    // If the length of the bar won't fit the full percent metrics, put the label at the end
+                    chartObj.svg.resultsSummary.append("text")
+                        .attr("class","summary")
+                        .attr("dy", '.1em')
+                        .attr("y",function(d,i) {return chartObj.methods.targetsYPos(1,1)+(chart.barHeight*1.5)})
+                        .attr("x", xEnd+5)
+                        .attr("dominant-baseline", "middle")
+                        .attr("text-anchor", "start")
+                        .text(chart.formatterValue(chartObj.metrics.resultsMax) + " (" + chart.formatterPercent(chartObj.metrics.resultsMax / chartObj.metrics.targetsMax) + ")")
+                } else {
+                    rs.append("text")
+                        .attr("dy", '.1em')
+                        .attr("y", "50%")
+                        .attr("x", "50%")
+                        .attr("dominant-baseline", "middle")
+                        .attr("text-anchor", "middle")
+                        .text(chart.formatterValue(chartObj.metrics.resultsMax) + " (" + chart.formatterPercent(chartObj.metrics.resultsMax / chartObj.metrics.targetsMax) + ")")
+                }
+            }
 
         return chartObj;
         }
@@ -604,7 +723,6 @@ function makePacingChart(settings) {
             groupObjs[p].methods = calcMethods(groupObjs[p].metrics);
             buildChartObj(groupObjs[p]);
         }
-
     }
 
 
@@ -633,7 +751,6 @@ function makePacingChart(settings) {
             .enter()
             .append("div")
             .attr("class", "group pace-chart chart-area")
-            // .style("max-width", chart.width + "px")
             .append("svg")
             .attr("width", chart.width)
             .attr("height", chart.height);
@@ -644,7 +761,7 @@ function makePacingChart(settings) {
         chart.objs.titles.append("text")
           .attr("class", "title")
           .attr("x","95")
-          .attr("y",chart.barHeight)
+          .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
           .text(function(d) {
             return d[chart.settings.titleCols[0]];
           });
@@ -653,7 +770,7 @@ function makePacingChart(settings) {
           .attr("class", "subtitle")
           .attr("dy", "1em")
           .attr("x","95")
-          .attr("y",chart.barHeight)
+          .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
           .text(function(d) {
             return d[chart.settings.titleCols[1]];
           });
