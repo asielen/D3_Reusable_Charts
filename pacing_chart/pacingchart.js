@@ -383,7 +383,7 @@ function makePacingChart(settings) {
             } else {
                 // We want to keep all ranges at 100%, use the max target as 100%.
                 // If this is the case, we may have ranges go over and will need to clamp the data.
-                // with the constrainToTargetAdj setting, the max of the bar can be reduced by a percentage to give some space for data larger than the target
+                //  with the constrainToTargetAdj setting, the max of the bar can be reduced by a percentage to give some space for data larger than the target
                 methods.xScale = d3.scaleLinear()
                     .domain([0, metrics.targetsMax]) // * (1+chart.settings.constrainToTargetAdj)
                     .range([0, chart.barWidth]);
@@ -447,7 +447,12 @@ function makePacingChart(settings) {
 
             // Formatting Methods
 
-            // Generated classes for the targets bars
+            /**
+             * Generated classes for the targets bars
+             * @param d - chartObj
+             * @param i - index
+             * @return {string}
+             */
             methods.targetBarFormat = (d,i) => {
                 let return_text = "target s" + i; // Bar Index
 
@@ -469,13 +474,20 @@ function makePacingChart(settings) {
                 return return_text;
             }
 
+             /**
+             * Wrapper function to keep the API the same and so custom formatters don't need to call d.value just d
+             */
             methods.targetTextLabel = (d, i) => {
-                // Wrapper function to keep the API the same and so custom formatters don't need to call d.value just d
                 return chart.formatterValue(d.value);
             }
 
-            // Generated classes for the targets text
-            // Generally if you want to target the text, you can just reference the parent SVG classes
+            /**
+             * Generated classes for the targets text
+             * Generally if you want to target the text, you can just reference the parent SVG classes
+             * @param d - chartObj
+             * @param i - index
+             * @return {string}
+             */
             methods.targetTextFormat = (d,i) => {
                 let return_text = "target text s" + i;
                 return_text += " " + makeSafeForCSS(d.column);
@@ -485,14 +497,24 @@ function makePacingChart(settings) {
                 return return_text;
             }
 
-            // If targets are being summarized, that shifts everything down one barHeight
+            /**
+             * If targets are being summarized, that shifts everything down one barHeight
+             * @param d - chartObj
+             * @param i - index
+             * @return y position
+             */
             methods.targetsYPos = (d,i) => {
                 let y = 0;
                 if (chart.settings.summarizeTargets) {y+=chart.barHeight}
                 return y
             }
 
-            // Generated classes for the results bars
+            /**
+             * Generated classes for the results bars
+             * @param d - chartObj
+             * @param i - index
+             * @return {string}
+             */
             methods.resultBarFormat = (d,i) => {
                 let return_text = "result s" + i; // Bar Index
 
@@ -523,10 +545,15 @@ function makePacingChart(settings) {
                 return return_text;
             }
 
+            /**
+             * Change what text is shown on the bar depending on the size of the results bar.
+             *  If the width is less than ~75, don't show the percentage
+             * The minimum width at which to show the precentage is a setting: chart.settings.minWidthForPercent
+             * @param d - chartObj
+             * @param i - index
+             * @return {string}
+             */
             methods.resultTextLabel = (d, i) => {
-                // Change what text is shown depending on the size of the results bar.
-                // If the width is less than ~75, don't show the percentage
-                // The minimum width at which to show the precentage is a setting: chart.settings.minWidthForPercent
                 let return_text = chart.formatterValue(d.value);
                 let width = methods.calcResultWidth(d, i);
                 if (width >= chart.settings.minWidthForPercent) {
@@ -536,7 +563,12 @@ function makePacingChart(settings) {
                 return return_text;
             }
 
-            // Depending on the summarize settings, the vertical position of the bars may be shifted down
+            /**
+             * If targets are being summarized or targets and results are summarized, that shifts everything down one or two barHeight
+             * @param d - chartObj
+             * @param i - index
+             * @return y position
+             */
             methods.resultsYPos = (d,i) => {
                 let y = chart.barHeight;
                 if (chart.settings.summarizeTargets) {y+=chart.barHeight}
@@ -544,8 +576,13 @@ function makePacingChart(settings) {
                 return y
             }
 
-            // Generated classes for the results text
-            // Generally if you want to result the text, you can just reference the parent SVG classes
+            /**
+             * Generated classes for the results text
+             * Generally if you want to target the text, you can just reference the parent SVG classes
+             * @param d - chartObj
+             * @param i - index
+             * @return {string}
+             */
             methods.resultTextFormat = (d,i) => {
                 let return_text = "result text s" + i;
                 return_text += " " + makeSafeForCSS(d.column);
@@ -555,7 +592,12 @@ function makePacingChart(settings) {
                 return return_text;
             }
 
-            // Markers
+            /**
+             * Generated classes for the target markers
+             * @param d - chartObj
+             * @param i - index
+             * @return {string}
+             */
             methods.targetMarkerFormat = (d, i) => {
                 let return_text = "marker s" + i;
                 if (d.classes && d.classes.length) {
@@ -568,6 +610,12 @@ function makePacingChart(settings) {
                 return return_text;
               };
 
+            /**
+             * Generated classes for the results markers
+             * @param d - chartObj
+             * @param i - index
+             * @return {string}
+             */
             methods.resultMarkerFormat = (d, i) => {
                 let return_text = "marker s" + i;
                 for (let i = 0; i <= d.percent_to_target; i+=chart.settings.p_threshold) {
@@ -585,10 +633,10 @@ function makePacingChart(settings) {
             return methods;
             }
 
-
+        /**
+         * Build all the svg elements for each sub-chart object
+         */
         function buildChartObj(chartObj) {
-            // Build all the svg elements for each sub-chart object
-
             chartObj.svg.targets = chartObj.g.append("g").attr("class","targets");
 
             // Parent target bar svg
@@ -619,7 +667,6 @@ function makePacingChart(settings) {
                 });
             let xtEnd = chartObj.svg.targets.node().getBBox().width + chart.settings.titlePadding;
 
-
             chartObj.svg.results = chartObj.g.append("g").attr("class","results");
             let r = chartObj.svg.results.selectAll("svg")
                 .data(chartObj.metrics.results)
@@ -647,6 +694,8 @@ function makePacingChart(settings) {
                     return chartObj.methods.resultTextLabel(d,i);
                 });
 
+            // If there is less than 75 pixels at the end of the bar, display the text summary below the bar
+            //   otherwise display it at the end of the bar.
             let xEnd = chartObj.svg.results.node().getBBox().width + chart.settings.titlePadding;
             if (xEnd > chart.barWidth - 75) {
                 chartObj.svg.results.append("text")
@@ -696,6 +745,8 @@ function makePacingChart(settings) {
                     return chartObj.methods.resultsYPos(d,i)+chart.barHeight
                 })
 
+
+            // If the summary settings are activated build those boxes
             if (chart.settings.summarizeTargets) {
                 chartObj.svg.targetsSummary = chartObj.g.append("g").attr("class", "targets-summary");
                 let ts = chartObj.svg.targetsSummary.append("svg")
@@ -774,7 +825,6 @@ function makePacingChart(settings) {
             buildChartObj(chart.groupObjs[p]);
         }
     }
-
 
     chart.set(settings);
 
