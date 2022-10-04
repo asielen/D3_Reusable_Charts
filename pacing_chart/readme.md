@@ -17,7 +17,7 @@ Supports D3 v6 and v7
 3. Add to your html head:
   <script src="pacingchart.js" charset="utf-8"></script>
   <link rel="stylesheet" type="text/css" href="pacingchart-base.css"> 
-  <link rel="stylesheet" type="text/css" href="pacingchart-starter.css">
+  <link rel="stylesheet" type="text/css" href="demos/pacingchart-starter.css">
 
 The two css files are optional however, the charts will look very dull without some styling to start. 
 pacingchart-base.css 
