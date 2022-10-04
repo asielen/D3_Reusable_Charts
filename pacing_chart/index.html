@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title></title>
-    <link rel="stylesheet" type="text/css" href="pacingchart.css">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="pacingchart-starter.css">
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+<!--    <script src="d3.min.js"></script>-->
 </head>
 <body>
 <div class="chart-wrapper" id="chart-pacing"></div>
@@ -13,8 +14,20 @@
 <script src="pacingchart.js" charset="utf-8"></script>
 <script type="text/javascript">
     let chart1;
-    d3.csv('data.csv', function(data) {
-        data.TARGET = +data.TARGET;
+    let settings = {
+            selector: '#chart-pacing',
+            targetsCols: [['RED_THRESHOLD','Red'],['YELLOW_THRESHOLD','Yellow'],'TARGET'], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
+            targetsMarkersCols: ['PREV_PROJECTED_AMOUNT'],
+            resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected'],'FINAL_PROJECTED_AMOUNT'],
+            resultMarkersCols: ['PREV_AMOUNT'],
+            titleCols: ['DEAL_TYPE','FISCAL_QUARTER_LONG_NAME'], // First one is main, second one is subtitle, any others are ignored
+            cumulativeResults: true,
+            cumulativeTargets: true,
+            summarizeResults: false,
+            summarizeTargets: false
+        }
+    chart1 = d3.csv('data.csv', function(data) {
+        data.TARGET = +data.TARGET; // Numerical data should be converted to numbers. This is easily achieved by prepending "+"
         data.YELLOW_THRESHOLD = +data.YELLOW_THRESHOLD;
         data.RED_THRESHOLD = +data.RED_THRESHOLD;
         data.AMOUNT = +data.AMOUNT;
@@ -22,25 +35,11 @@
         data.PREV_AMOUNT = +data.PREV_AMOUNT;
         data.PREV_PROJECTED_AMOUNT = +data.PREV_PROJECTED_AMOUNT;
         return data;
-    }).then( function(data) {
-        chart1 = makePacingChart({
-            data: data,
-            targetsCols: [['RED_THRESHOLD','Red'],['YELLOW_THRESHOLD','Yellow'],'TARGET'], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
-            targetsMarkersCols: ['PREV_PROJECTED_AMOUNT'],
-            resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected'],'FINAL_PROJECTED_AMOUNT'],
-            resultMarkersCols: ['PREV_AMOUNT'],
-            titleCols: ['DEAL_TYPE','FISCAL_QUARTER_LONG_NAME'], // First one is main, second one is subtitle, any others are ignored
-            selector: '#chart-pacing',
-            cumulativeResults: false,
-            cumulativeTargets: true,
-            summarizeResults: true,
-            summarizeTargets: true
-        })
-        }
-    );
-
-
-
+    }).then( function(data) {return makePacingChart(settings).set({data:data}); }
+    // ).then( function(chart) {console.log(chart); chart.tooltipGenerator = function(b,c) {return b.title}; return chart}
+    ).then( function(chart) {console.log(chart); chart.render()});
+    // console.log(chart1);
+    // chart1.update();
 
 </script>
 </body>

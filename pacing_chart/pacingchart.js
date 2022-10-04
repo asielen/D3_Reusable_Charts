@@ -1,6 +1,7 @@
 /**
  * @fileOverview A D3 based chart for tracking progress against goals. Variation of a bullet chart.
  * @version 1.0
+ * Tested on d3 v6 and v7
  */
 
 /**
@@ -12,7 +13,7 @@
  * @param [settings.targetsMarkersCols] The name of the columns used to define the target markers. It can be defined as an array of strings or an array of arrays where each subarray includes the column name and a display name
  * @param settings.resultsCols The name of the columns used to define the results. It can be defined as an array of strings or an array of arrays where each subarray includes the column name and a display name
  * @param [settings.resultsMarkersCols] The name of the columns used to define the results markers. It can be defined as an array of strings or an array of arrays where each subarray includes the column name and a display name
- * @param [settings.titleCols] Array where the first column name is used as a title, the second (optional) one is used as a subtitle. NOTE: Title must be unique, subtitle does not need to be
+ * @param [settings.titleCols] Array where the first column name is used as a title, the second (optional) one is used as a subtitle.
  * @param settings.chartWidth=500 The Max width of each chart within  the collection of charts
  * @param settings.barHeight=35 The height of each bar, each chart is two stacked charts to this value x2 is the total height of each subchart
  * @param settings.titlePadding=100 How much space to the left of the charts should be allocated to the title. The bar chart portion is adjusted down to the remaining space
@@ -22,17 +23,8 @@
  * @param settings.cumulativeResults=true If true, the results are subsets of each other ie. the largest result is the total result. If false, the total result is the sum of all the results.
  * @param settings.summarizeTargets=false If true, show a separate bar above the targets that is a sum of all the individual targets, mostly useful when paired with cumulativeTargets=false
  * @param settings.summarizeResults=false If true, show a separate bar above the results that is a sum of all the individual results, mostly useful when paired with cumulativeResults=false
- * @returns {object} chart A chart object
+ * @returns {object} A chart object
  */
-
-/**
- * Additional Settings that can be set post creation on the returned chart object.
- * @param chart.formatterValue - Takes a number and formats it. ie 4500000 -> 4.5M
- * @param chart.formatterPercent - Takes a percent and formats it. ie 23.454234% -> 23.5%
- * @param chart.formatterValueTooltip - Takes a number and formats it. ie 4500000 -> 4.5M. Separate from formatterValue to allow for flexibility in the tooltip
- * @param chart.tooltipHover - Returns a html text string that populates the hovertool tip.
- */
-
 function makePacingChart(settings) {
 
     let chart = {};
@@ -55,15 +47,169 @@ function makePacingChart(settings) {
         cumulativeResults: true,
         summarizeTargets: false,
         summarizeResults: false,
-        constrainToTarget: false, // Not implemented
-        constrainToTargetAdj: 50 // Not implemented
+        w_threshold: 25,
+        p_threshold: .1,
+        _constrainToTarget: false, // Not implemented
+        _constrainToTargetAdj: 50, // Not implemented
+        _minDisplayWidth: 1000 // Not implemented
     };
 
-    // Copy from function parameters to settings
-    for (let setting in settings) {
-        chart.settings[setting] = settings[setting]
+    chart.groupObjs = {};
+    chart.objs = {mainDiv: null, chartDiv: null, g: null};
+
+    /**
+    * Allows settings to be updated by calling chart.set after initialization but before update.
+    * Useful if some settings are templatized (the same multiple places).
+     * Built so that the functions that can be overridden, can also be defined here.
+     *  ie. chart.set(formatterValue=newFunct) This way you can chain the settings update calls.
+     *  This also means that these functions can be set at initialization since that also calls chart.set
+     * @param settings_map A key:value map of settings.
+     * @return the chart object so it can be chained
+     */
+    chart.set = (settings_map) => {
+        let dataUpdated = false;
+        for (let setting in settings_map) {
+            chart.settings[setting] = settings_map[setting]
+            if (setting === 'data') {chart.data = chart.settings.data; dataUpdated=true}
+            if (['formatterValue','formatterValueToolTip','formatterPercent','tooltipGenerator'].includes(setting) && typeof setting === 'function'){
+                // If it is one of the pre-defined functions, update that function
+                chart[setting] = setting;
+            }
+        }
+        // Update base layout settings
+        chart.width = chart.settings.chartWidth;
+        chart.height = (chart.settings.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults) + chart.settings.lowerSummaryPadding)
+        chart.barWidth = chart.settings.chartWidth - chart.settings.titlePadding;
+        if (chart.settings._constrainToTarget) {chart.barWidth -= chart.settings._constrainToTargetAdj}
+        chart.barHeight = chart.settings.barHeight;
+
+        // If the data was updated, reinitialize base metrics
+        if (dataUpdated){
+            prepareData()
+        }
+        return chart;
     }
 
+
+    /**
+     * Read and prepare the raw data (no calculations based on ranges as those could change).
+     */
+    function prepareData() {
+
+        /**
+         * Return num rounded to the nearest 10.
+         *  11 -> 10, 26 -> 30 etc
+         * For tagging the bars with classes based on each 10%
+         */
+        function roundUpNearest10(num) {
+          return Math.round(Math.ceil(num / 10) * 10);
+        }
+
+        let valueSort = (a, b) => {
+            if (a.value < b.value) return -1;
+            if (a.value > b.value) return 1;
+            return 0;
+        }
+
+        /**
+         * Parse the data based on the column names provided
+         */
+        let parseValues = (columnNames, current_row, is_cumulative) => {
+            let metricsObj = [];
+            for (const column of columnNames) {
+                let ref = column;
+                let name = column;
+                if (typeof column != 'string') {
+                    ref = column[0];
+                    name = column[1];
+                }
+                metricsObj.push({column: ref, name: name, value: chart.data[current_row][ref]});
+                // If the targets or results are additive, not cumulative. The order presented in the setup will be kept.
+                // Otherwise, they will be sorted by value.
+                if (!is_cumulative) {metricsObj.sort(valueSort)}
+            }
+            return metricsObj;
+        }
+
+        /**
+         * Each ChartObj is one of the "subcharts". This corresponds to one row of data
+         */
+        function makechartObj(row, index){
+            let chartObj = {
+                title: "",
+                subtitle: null,
+                index: 0,
+                classes: [],
+                unique_id: "",
+                svg: {parent:null,title:null,subtitle:null,targets:null,results:null,targetsMarkers:null,resultsMarkers:null},
+                metrics : { //These are the original non-scaled values
+                    targets: [],
+                    results: [],
+                    targetsMarkers: [],
+                    resultsMarkers: []
+                }
+            }
+            chartObj.index = index;
+            chartObj.unique_id = "g"+index+"-"+Math.random().toString(16).slice(2)
+            row.unique_id = chartObj.unique_id;
+
+            if (typeof chart.settings.titleCols != 'string') {
+                    chartObj.title = row[chart.settings.titleCols[0]];
+                    chartObj.subtitle = row[chart.settings.titleCols[1]];
+            } else {
+                chartObj.title = row[chart.settings.titleCols];
+            }
+
+            chartObj.metrics.targets = parseValues(chart.settings.targetsCols, index, chart.settings.cumulativeTargets);
+            chartObj.metrics.targetsMarkers = parseValues(chart.settings.targetsMarkersCols, index, chart.settings.cumulativeTargets);
+            chartObj.metrics.results = parseValues(chart.settings.resultsCols, index, chart.settings.cumulativeResults);
+            chartObj.metrics.resultsMarkers = parseValues(chart.settings.resultMarkersCols, index, chart.settings.cumulativeResults);
+            chartObj.metrics.resultsLastIndex = chartObj.metrics.results.length - 1
+
+            // Depending on the settings, these are used to identify the max width of the bars
+            // The standard is that the largest value across all measures is the max width.
+            chartObj.metrics.targetsMax = !chart.settings.cumulativeTargets ? chartObj.metrics.targets.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.targets.map(o => o.value)); // The largest target is used as the main target. Should this be more flexible?
+            chartObj.metrics.targetsMarkersMax = Math.max(...chartObj.metrics.targetsMarkers.map(o => o.value));
+
+            chartObj.metrics.resultsMax = !chart.settings.cumulativeResults ? chartObj.metrics.results.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.results.map(o => o.value));
+            chartObj.metrics.resultsMin = Math.min(...chartObj.metrics.results.map(o => o.value));
+            chartObj.metrics.resultsMarkersMax = Math.max(...chartObj.metrics.resultsMarkers.map(o => o.value));
+            chartObj.metrics.resultsMarkersMin = Math.min(...chartObj.metrics.resultsMarkers.map(o => o.value));
+
+            chartObj.metrics.metricsMax = Math.max(chartObj.metrics.targetsMax, chartObj.metrics.resultsMax, chartObj.metrics.targetsMarkersMax, chartObj.metrics.resultsMarkersMax);
+
+            // Calculate percent of max target for results
+            // Used to tag with classes for css formatting
+            chartObj.metrics.results.forEach(result => {
+                result.percent_to_target = result.value / chartObj.metrics.targetsMax;
+                });
+
+            // Calculate percent of max target for results markers
+            chartObj.metrics.resultsMarkers.forEach(result => {
+                    result.percent_to_target = result.value / chartObj.metrics.targetsMax;
+                });
+
+            // Also the chart object itself gets a class append for the target to results
+            chartObj.classes.push("p"+(roundUpNearest10((chartObj.metrics.resultsMax/chartObj.metrics.targetsMax)*100)).toString())
+
+            return chartObj;
+        }
+
+        let current_obj = null;
+
+        // Create objects for each row in the data
+        for (let current_row = 0; current_row < chart.data.length; current_row++) {
+            current_obj = makechartObj(chart.data[current_row], current_row);
+            chart.groupObjs[current_obj.unique_id] = current_obj;
+        }
+    }
+
+
+    // These three formatter functions can be overwritten before rendering
+
+    /**
+     * Main formatter function used for display of values in bars
+     */
     chart.formatterValue = (d) => {
         // If no decimals then format without the decimals
         let dmod = Math.ceil(Math.log10(d + 1)) % 3;
@@ -74,9 +220,11 @@ function makePacingChart(settings) {
             return d3.format("."+(dmod+1)+"s")(d);
         }
     }
-
+    /**
+     * Main formatter function used for display of values in the tool tip
+     */
     chart.formatterValueToolTip = (d) => {
-        // ALways return at least 1 decimal in abbreviated view
+        // Always return at least 1 decimal in abbreviated view
         let dmod = Math.ceil(Math.log10(d + 1))%3;
         if (dmod === 0) {
             // If there are decimal points
@@ -85,7 +233,9 @@ function makePacingChart(settings) {
             return d3.format("."+(dmod+2)+"s")(d);
         }
     }
-
+    /**
+     * Main formatter function used for display of percentages in bars and the tooltip
+     */
     chart.formatterPercent = (d) => {
         // If no decimals then format without the decimals
         if ((d*100) % 1 !== 0) {
@@ -95,18 +245,15 @@ function makePacingChart(settings) {
         }
     }
 
-    chart.data = chart.settings.data;
-
-    chart.groupObjs = {}; //The data organized by subchart(row)
-    chart.objs = {mainDiv: null, chartDiv: null, g: null};
-
     /**
-     * Closure that creates the tooltip hover function
-     * @param cName Name of the x group
-     * @param groupObj Object to use to get values for the group
-     * @returns {Function} A function that provides the values for the tooltip
+     * An example tooltip generator that takes the object the cursor is
+     *  hovering over as a parameter and returns a text string.
+     * This method can be customized and overwritten.
+     * @param groupObj the subchart object with all properties of the subchart
+     * @param event the data of the specific object that is being hovered over, which is a subelement of the subchart
+     * @returns an html string that will be injected into the tooltip
      */
-    function tooltipHover(cName, groupObj, event) {
+    chart.tooltipGenerator = function(groupObj, event){
         let tooltipString = '<span class="chart title">'+groupObj.title;
         if (groupObj.subtitle) {
             tooltipString += " "+groupObj.subtitle;
@@ -165,26 +312,26 @@ function makePacingChart(settings) {
             tooltipString += "<span class='"+selected+"'><span class='result-marketer title '>> "+result.name+"</span> : <span class='result-marker value '>"+chart.formatterValueToolTip(result.value)+" | "+chart.formatterPercent(result.percent_to_target)+"</span></span><br \>"
             selected = ""
         }
-        return function () {
+        return tooltipString
+    }
 
+    /**
+     * Renders the tooltip defined in the tooltip Generator.
+     */
+    function tooltipRender(groupObj, event) {
+        return function () {
             chart.objs.tooltip.transition().duration(200);
-            chart.objs.tooltip.html(tooltipString)
+            chart.objs.tooltip.html(chart.tooltipGenerator(groupObj, event))
         };
     }
 
     /**
-     * Prepare the chart settings and chart div and svg
+     * Takes a string and makes it css class safe.
+     * @param name a text string.
+     * @returns {string} A text string that cab be used as a css class
      */
-    !function prepareSettings() {
-        chart.width = chart.settings.chartWidth;
-        chart.height = (chart.settings.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults) + chart.settings.lowerSummaryPadding)
-        chart.barWidth = chart.settings.chartWidth - chart.settings.titlePadding;
-        if (chart.settings.constrainToTarget) {chart.barWidth -= chart.settings.constrainToTargetAdj}
-        chart.barHeight = chart.settings.barHeight;
-    }();
-
     function makeSafeForCSS(name) {
-        // https://stackoverflow.com/a/7627603
+        // Modified from https://stackoverflow.com/a/7627603
         // Spaces and _ are replaces with -
         // Special characters are replaced with _
         // Uppercase is replaced with lowercase
@@ -204,123 +351,32 @@ function makePacingChart(settings) {
     }
 
     /**
-     * Read and prepare the raw data (no calculations based on ranges as those could change)
-     */
-    !function prepareData() {
-
-        function roundUpNearest10(num) {
-          return Math.round(Math.ceil(num / 10) * 10);
-        }
-
-        let valueSort = (a, b) => {
-            if (a.value < b.value) return -1;
-            if (a.value > b.value) return 1;
-            return 0;
-        }
-
-        // Read the data from the columns
-        let parseValues = (columnNames, current_row) => {
-            let metricsObj = [];
-            for (const column of columnNames) {
-                let ref = column;
-                let name = column;
-                if (typeof column != 'string') {
-                    ref = column[0];
-                    name = column[1];
-                }
-                metricsObj.push({column: ref, name: name, value: chart.data[current_row][ref]});
-                metricsObj.sort(valueSort);
-            }
-            return metricsObj;
-        }
-
-        function makechartObj(row, index){
-            let chartObj = {
-                title: "", // If null, the index will be used for internal sorting
-                subtitle: null, // Can be null
-                index: 0, // For order in presenting
-                classes: [], // additional classes for formatting options
-                svg: {parent:null,title:null,subtitle:null,targets:null,results:null,targetsMarkers:null,resultsMarkers:null},
-                metrics : { //These are the original non-scaled values
-                    targets: [],
-                    results: [],
-                    targetsMarkers: [],
-                    resultsMarkers: [],
-                    targetsMax: 0, // Largest value of the targets (for if constrain to target is true)
-                    metricMax: 0 // Largest value of all metric values
-                }
-            }
-            chartObj.index = index;
-
-            if (typeof chart.settings.titleCols != 'string') {
-                    chartObj.title = row[chart.settings.titleCols[0]];
-                    chartObj.subtitle = row[chart.settings.titleCols[1]];
-            } else {
-                chartObj.title = row[chart.settings.titleCols];
-            }
-
-            chartObj.metrics.targets = parseValues(chart.settings.targetsCols, index);
-            chartObj.metrics.targetsMarkers = parseValues(chart.settings.targetsMarkersCols, index);
-            chartObj.metrics.results = parseValues(chart.settings.resultsCols, index);
-            chartObj.metrics.resultsMarkers = parseValues(chart.settings.resultMarkersCols, index);
-            chartObj.metrics.resultsLastIndex = chartObj.metrics.results.length - 1
-
-            chartObj.metrics.targetsMax = !chart.settings.cumulativeTargets ? chartObj.metrics.targets.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.targets.map(o => o.value)); // The largest target is used as the main target. Should this be more flexible?
-            chartObj.metrics.targetsMarkersMax = Math.max(...chartObj.metrics.targetsMarkers.map(o => o.value));
-
-            chartObj.metrics.resultsMax = !chart.settings.cumulativeResults ? chartObj.metrics.results.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.results.map(o => o.value));
-            chartObj.metrics.resultsMin = Math.min(...chartObj.metrics.results.map(o => o.value));
-            chartObj.metrics.resultsMarkersMax = Math.max(...chartObj.metrics.resultsMarkers.map(o => o.value));
-            chartObj.metrics.resultsMarkersMin = Math.min(...chartObj.metrics.resultsMarkers.map(o => o.value));
-
-            chartObj.metrics.metricsMax = Math.max(chartObj.metrics.targetsMax, chartObj.metrics.resultsMax, chartObj.metrics.targetsMarkersMax, chartObj.metrics.resultsMarkersMax);
-
-            // these are used to append classes for formatting in css
-            // Calculate percent of max target for results
-            chartObj.metrics.results.forEach(result => {
-                result.percent_to_target = result.value / chartObj.metrics.targetsMax;
-                });
-
-            // Calculate percent of max target for results markers
-            chartObj.metrics.resultsMarkers.forEach(result => {
-                    result.percent_to_target = result.value / chartObj.metrics.targetsMax;
-                });
-
-            // Also the chart object itself gets a class append for the target to results
-            chartObj.classes.push("p"+(roundUpNearest10((chartObj.metrics.resultsMax/chartObj.metrics.targetsMax)*100)).toString())
-
-            return chartObj;
-        }
-
-        let current_obj = null;
-        // Create objects for each row in the data
-        for (let current_row = 0; current_row < chart.data.length; current_row++) {
-            current_obj = makechartObj(chart.data[current_row], current_row);
-            if (current_obj.title) chart.groupObjs[current_obj.title] = current_obj;
-            else chart.groupObjs[current_obj.index.toString()] = current_obj;
-        }
-    }();
-
-    /**
      * For each chartObj, calculate the relevant metrics that are affected by the size of the chart
      *  Range, width etc
-     * @returns {*}
      */
-    chart.update = function (groupObjs) {
-        g = groupObjs;
-        // Update Settings
-        // chart.width = chart.settings.chartWidth // Width includes width of title text and space for end text
-        // chart.height = (chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))// - chart.margin.top - chart.margin.bottom;
+    chart.update = function () {
+
+
+        // Get the current size of the viewport
+        // let t_width = parseInt(chart.objs.chartDiv.style("width"), 10);
+        // let t_height = parseInt(chart.objs.chartDiv.style("height"), 10);
+        // console.log(t_width, t_height);
+
+        //
+        // // Update scale functions
+        // chart.xScale.range([0, chart.width]);
+        // chart.yScale.range([chart.height, 0]);
 
         function calcMethods(metrics) {
-            let methods = { //These are the functions to convert raw data to position
+            //These are the methods to convert raw data to position
+            let methods = {
                 xScale: null,
                 widthCalc: null,
-                calcPreviousTargetWidth: null,
-                calcPreviousResultWidth: null
+                calcTargetWidth: null,
+                calcResultWidth: null
             };
 
-            if (!chart.settings.constrainToTarget) {
+            if (!chart.settings._constrainToTarget) {
                 methods.xScale = d3.scaleLinear()
                     .domain([0, metrics.metricsMax])
                     .range([0, chart.barWidth]);
@@ -353,13 +409,13 @@ function makePacingChart(settings) {
                 };
             }
 
-            methods.calcPreviousTargetWidth = calcPreviousWidth(methods.xScale, metrics.targets, chart.settings.cumulativeTargets);
-            methods.calcPreviousResultWidth = calcPreviousWidth(methods.xScale, metrics.results, chart.settings.cumulativeResults);
+            methods.calcTargetWidth = calcPreviousWidth(methods.xScale, metrics.targets, chart.settings.cumulativeTargets);
+            methods.calcResultWidth = calcPreviousWidth(methods.xScale, metrics.results, chart.settings.cumulativeResults);
 
             methods.calcTargetMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
             methods.calcResultMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
 
-            const calcPreviousX = (scaleFunc, values, cumulative) => {
+            const calcPreviousX = (scaleFunc, values) => {
                 return function(d, i) {
                     let x = chart.settings.titlePadding;
                     if (i > 0 && i <= values.length - 1) {
@@ -370,14 +426,11 @@ function makePacingChart(settings) {
                 };
             }
 
-            methods.calcPreviousTargetX = calcPreviousX(methods.xScale, metrics.targets, chart.settings.cumulativeTargets);
-            methods.calcPreviousResultX = calcPreviousX(methods.xScale, metrics.results, chart.settings.cumulativeResults);
-
             const calcCumPreviousX = (scaleFunc, values) => {
+                // For cumulative need to add the previous x with the previous width. Not just the previous width
                 return function(d,i) {
                     let c = chart.settings.titlePadding;
                     if (i > 0 && i <= values.length - 1) {
-                        // For cumulative need to add the previous x with the previous width. Not just the previous width
                         for (let j = i-1; j >= 0; j--) {
                             c += scaleFunc(values[j].value)
                         }
@@ -388,22 +441,28 @@ function makePacingChart(settings) {
                 };
             }
 
-            methods.calcPreviousTargetX = chart.settings.cumulativeTargets ? calcPreviousX(methods.xScale, metrics.targets) : calcCumPreviousX(methods.xScale, metrics.targets);
-            methods.calcPreviousResultX = chart.settings.cumulativeResults ? calcPreviousX(methods.xScale, metrics.results) : calcCumPreviousX(methods.xScale, metrics.results);
+            methods.calcTargetX = chart.settings.cumulativeTargets ? calcPreviousX(methods.xScale, metrics.targets) : calcCumPreviousX(methods.xScale, metrics.targets);
+            methods.calcResultX = chart.settings.cumulativeResults ? calcPreviousX(methods.xScale, metrics.results) : calcCumPreviousX(methods.xScale, metrics.results);
+
 
             // Formatting Methods
 
-            // Targets
+            // Generated classes for the targets bars
             methods.targetBarFormat = (d,i) => {
-                let return_text = "target s" + i;
-                let width = methods.calcPreviousTargetWidth(d, i);
-                for (let i = 0; i <= Math.round(width); i+=25) {
+                let return_text = "target s" + i; // Bar Index
+
+                // Width classes, every 25 pixels prepended with w
+                let width = methods.calcTargetWidth(d, i);
+                for (let i = 0; i <= Math.round(width); i+=chart.settings.w_threshold) {
                     return_text += " w"+`${i}`
                 }
+
+                // Target name, human-readable and raw
                 return_text += " "+makeSafeForCSS(d.column);
                 if (d.column !== d.name) {
                     return_text += " " + makeSafeForCSS(d.name);
                 }
+
                 if (d.classes && d.classes.length) {
                     return_text += d.classes.join(" ")
                 }
@@ -415,10 +474,9 @@ function makePacingChart(settings) {
                 return chart.formatterValue(d.value);
             }
 
+            // Generated classes for the targets text
+            // Generally if you want to target the text, you can just reference the parent SVG classes
             methods.targetTextFormat = (d,i) => {
-                // Change what text is shown depending on the size and order of the measures
-                // If the width is less than 100, make the font size 12px -- class = less100
-                // All this is done through returning certain css classes
                 let return_text = "target text s" + i;
                 return_text += " " + makeSafeForCSS(d.column);
                 if (d.column !== d.name) {
@@ -427,41 +485,50 @@ function makePacingChart(settings) {
                 return return_text;
             }
 
+            // If targets are being summarized, that shifts everything down one barHeight
             methods.targetsYPos = (d,i) => {
                 let y = 0;
                 if (chart.settings.summarizeTargets) {y+=chart.barHeight}
                 return y
             }
 
-            // Results
+            // Generated classes for the results bars
             methods.resultBarFormat = (d,i) => {
-                let return_text = "result s" + i;
-                let width = methods.calcPreviousResultWidth(d, i);
-                for (let i = 0; i <= Math.round(width) ; i+=25) {
+                let return_text = "result s" + i; // Bar Index
+
+                // Width classes, every 25 pixels prepended with w
+                let width = methods.calcResultWidth(d, i);
+                for (let i = 0; i <= Math.round(width) ; i+=chart.settings.w_threshold) {
                     return_text += " w"+`${i}`
                 }
-                for (let i = 0; i <= d.percent_to_target; i+=.1) {
+
+                // Percent to target classes, every 10 percent prepended with p
+                for (let i = 0; i <= d.percent_to_target; i+=chart.settings.p_threshold) {
                     return_text += " p"+`${Math.round(i*100)}`
                 }
+                // Call out the last one for easy targeting
                 if (i === metrics.resultsLastIndex) {
                     return_text += " last";
                 }
+
+                // Target name, human-readable and raw
+                return_text += " "+makeSafeForCSS(d.column);
+                if (d.column !== d.name) {
+                    return_text += " " + makeSafeForCSS(d.name);
+                }
+
                 if (d.classes && d.classes.length) {
                     return_text += d.classes.join(" ")
                 }
-                return_text += " "+makeSafeForCSS(d.column);
-                return_text += " "+makeSafeForCSS(d.title);
                 return return_text;
             }
 
             methods.resultTextLabel = (d, i) => {
-                // Change what text is shown depending on the size and order of the measures
-                // If the width is less than 75, don't show the percentage
-                // If this is the last item, and it is more than 80%, Only show the number
-                // d is the metric and i is the index of that item
-                // let perc = d.value / metrics.targetsMax
+                // Change what text is shown depending on the size of the results bar.
+                // If the width is less than ~75, don't show the percentage
+                // The minimum width at which to show the precentage is a setting: chart.settings.minWidthForPercent
                 let return_text = chart.formatterValue(d.value);
-                let width = methods.calcPreviousResultWidth(d, i);
+                let width = methods.calcResultWidth(d, i);
                 if (width >= chart.settings.minWidthForPercent) {
                     // Append percentage if there is room
                     return_text += " (" + chart.formatterPercent(d.percent_to_target) + ")";
@@ -469,22 +536,7 @@ function makePacingChart(settings) {
                 return return_text;
             }
 
-            methods.resultsOverflowCheck = (d,i) => {
-                return (methods.calcPreviousResultWidth(d,i) + methods.calcPreviousResultX(d,i)) > (chart.barWidth - 100)
-            }
-
-            methods.resultTextXPos = (d,i) => {
-                // If this is the last item, adjust the x to the end of the bar rather than on the bar.
-                // Otherwise, find the middle of the bar, to do this we need the end of the previous bar and the end of this bar
-                return "50%"
-            }
-
-            methods.resultTextYPos = (d,i) => {
-                // If this is the last item, adjust the x to the end of the bar rather than on the bar.
-                // Otherwise, find the middle of the bar, to do this we need the end of the previous bar and the end of this bar
-                return "50%"
-            }
-
+            // Depending on the summarize settings, the vertical position of the bars may be shifted down
             methods.resultsYPos = (d,i) => {
                 let y = chart.barHeight;
                 if (chart.settings.summarizeTargets) {y+=chart.barHeight}
@@ -492,19 +544,15 @@ function makePacingChart(settings) {
                 return y
             }
 
+            // Generated classes for the results text
+            // Generally if you want to result the text, you can just reference the parent SVG classes
             methods.resultTextFormat = (d,i) => {
-                // Change what text is shown depending on the size and order of the measures
-                // If the width is less than 100, make the font size 12px -- class = less100
-                // If width is less than 40px, make invisible -- class = noshow
-                // If last item, append class = last
-                // All this is done through returning certain css classes
                 let return_text = "result text s" + i;
+                return_text += " " + makeSafeForCSS(d.column);
+                if (d.column !== d.name) {
+                    return_text += " " + makeSafeForCSS(d.name);
+                }
                 return return_text;
-            }
-
-            methods.resultsTextAlign = (d, i) => {
-                // If it is the last item, align it to the left rather than the middle
-                return "middle";
             }
 
             // Markers
@@ -522,7 +570,7 @@ function makePacingChart(settings) {
 
             methods.resultMarkerFormat = (d, i) => {
                 let return_text = "marker s" + i;
-                for (let i = 0; i <= d.percent_to_target; i+=.1) {
+                for (let i = 0; i <= d.percent_to_target; i+=chart.settings.p_threshold) {
                     return_text += " p"+`${Math.round(i*100)}`
                 }
                 if (d.classes && d.classes.length) {
@@ -537,20 +585,22 @@ function makePacingChart(settings) {
             return methods;
             }
 
+
         function buildChartObj(chartObj) {
-            // Update the target rectangles.
+            // Build all the svg elements for each sub-chart object
 
             chartObj.svg.targets = chartObj.g.append("g").attr("class","targets");
 
+            // Parent target bar svg
             let g = chartObj.svg.targets.selectAll("svg")
                 .data(chartObj.metrics.targets)
                 .enter()
                 .append("svg")
                 .attr("class", chartObj.methods.targetBarFormat)
-                .attr("width", chartObj.methods.calcPreviousTargetWidth)
+                .attr("width", chartObj.methods.calcTargetWidth)
                 .attr("height", chart.barHeight)
                 .attr("y", chartObj.methods.targetsYPos)
-                .attr("x", chartObj.methods.calcPreviousTargetX)
+                .attr("x", chartObj.methods.calcTargetX)
 
             g.append("rect")
                 .attr("class", chartObj.methods.targetBarFormat)
@@ -576,9 +626,9 @@ function makePacingChart(settings) {
                 .enter()
                 .append("svg")
                 .attr("class", chartObj.methods.resultBarFormat)
-                .attr("width", chartObj.methods.calcPreviousResultWidth)
+                .attr("width", chartObj.methods.calcResultWidth)
                 .attr("height", chart.barHeight)
-                .attr("x", chartObj.methods.calcPreviousResultX)
+                .attr("x", chartObj.methods.calcResultX)
                 .attr("y",chartObj.methods.resultsYPos)
 
             r.append("rect")
@@ -589,10 +639,10 @@ function makePacingChart(settings) {
             r.append("text")
                 .attr("class", chartObj.methods.resultTextFormat)
                 .attr("dy", '.1em')
-                .attr("y",chartObj.methods.resultTextYPos)
-                .attr("x",chartObj.methods.resultTextXPos)
+                .attr("y","50%")
+                .attr("x","50%")
                 .attr("dominant-baseline","middle")
-                .attr("text-anchor", chartObj.methods.resultsTextAlign)
+                .attr("text-anchor", "middle")
                 .text(function(d, i) {
                     return chartObj.methods.resultTextLabel(d,i);
                 });
@@ -719,38 +769,39 @@ function makePacingChart(settings) {
         return chartObj;
         }
 
-        for (const p in groupObjs) {
-            groupObjs[p].methods = calcMethods(groupObjs[p].metrics);
-            buildChartObj(groupObjs[p]);
+        for (const p in chart.groupObjs) {
+            chart.groupObjs[p].methods = calcMethods(chart.groupObjs[p].metrics);
+            buildChartObj(chart.groupObjs[p]);
         }
     }
 
 
+    chart.set(settings);
+
     /**
      * Prepare the chart html elements
      */
-    !function prepareChart() {
+    chart.render = function() {
         // Build main div and chart div
         chart.objs.mainDiv = d3.select(chart.settings.selector);
+        chart.objs.mainDiv.node().classList.add("pace-chart");
 
         // Add all the divs to make it centered and responsive
-        chart.objs.mainDiv.append("div")
-            .attr("class", "inner-wrapper")
-            .append("div").attr("class", "outer-box")
-            .append("div").attr("class", "inner-box").style("display","flex").style("flex-wrap","wrap");
+        chart.objs.mainDiv.append("div").attr("class", "inner-box").style("display","flex").style("flex-wrap","wrap");
 
         // Capture the inner div for the chart (where the chart actually is)
         chart.selector = chart.settings.selector + " .inner-box";
         chart.objs.chartDiv = d3.select(chart.selector);
+
         // Resize update hook
-        // d3.select(window).on('resize.' + chart.selector, function() {chart.update(chart.groupObjs)});
+        // d3.select(window).on('resize.' + chart.selector, function() {chart.update()});
 
         // Create the svg
         chart.objs.g = chart.objs.chartDiv.selectAll("div.chart-area")
             .data(chart.data)
             .enter()
             .append("div")
-            .attr("class", "group pace-chart chart-area")
+            .attr("class", "group chart-area")
             .append("svg")
             .attr("width", chart.width)
             .attr("height", chart.height);
@@ -781,34 +832,34 @@ function makePacingChart(settings) {
         // Create each chart divs
         chart.objs.g.each(
             function(g,i) {
-                for (let cName in chart.groupObjs) {
-                    if (cName === g[chart.settings.titleCols[0]]) {
+                for (let unique_id in chart.groupObjs) {
+                    if (unique_id === g['unique_id']) {
                         // To make the dom elements easier to reference, add them to the chartObjects object
-                        chart.groupObjs[cName].g = d3.select(this)
-                        chart.groupObjs[cName].unique_id = "g"+i+"-"+Math.random().toString(16).slice(2); // Uniqueish ID
-                        chart.groupObjs[cName].g.attr("class",makeSafeForCSS(chart.groupObjs[cName].title)+" "+makeSafeForCSS(chart.groupObjs[cName].subtitle));
-                        chart.groupObjs[cName].g.attr("id",chart.groupObjs[cName].unique_id);
+                        chart.groupObjs[unique_id].g = d3.select(this)
+                        chart.groupObjs[unique_id].g.attr("class", makeSafeForCSS(chart.groupObjs[unique_id].title) + " " + makeSafeForCSS(chart.groupObjs[unique_id].subtitle));
+                        chart.groupObjs[unique_id].g.attr("id", chart.groupObjs[unique_id].unique_id);
                         // Add the mouseover
-                        chart.groupObjs[cName].g.on("mouseover", function (event, d) {
+                        chart.groupObjs[unique_id].g.on("mouseover", function (event, d) {
                             chart.objs.tooltip
                                 .style("display", null)
                                 .style("left", (event.pageX) + "px")
                                 .style("top", (event.pageY - 28) + "px");
                         }).on("mouseout", function () {
                             chart.objs.tooltip.style("display", "none");
-                        }).on("mousemove", function(event, d) {
+                        }).on("mousemove", function (event, d) {
                             chart.objs.tooltip
-                                .style("left", (event.pageX) + "px")
-                                .style("top", (event.pageY - 28) + "px");
-                            tooltipHover(cName, chart.groupObjs[cName], event.srcElement.__data__)()
+                                .style("left", (event.pageX + 10) + "px")
+                                .style("top", (event.pageY - 10) + "px");
+                            tooltipRender(chart.groupObjs[unique_id], event.target.__data__)()
                         })
                     }
                 }
             }
         );
 
-        chart.update(chart.groupObjs);
-    }();
+        chart.update();
+        return chart;
+    };
 
     return chart;
 }
