@@ -50,8 +50,6 @@ function makePacingChart(settings) {
         w_threshold: 25,
         p_threshold: .1,
         _constrainToTarget: false, // Not implemented
-        _constrainToTargetAdj: 50, // Not implemented
-        _minDisplayWidth: 1000 // Not implemented
     };
 
     chart.groupObjs = {};
@@ -80,7 +78,6 @@ function makePacingChart(settings) {
         chart.width = chart.settings.chartWidth;
         chart.height = (chart.settings.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults) + chart.settings.lowerSummaryPadding)
         chart.barWidth = chart.settings.chartWidth - chart.settings.titlePadding;
-        if (chart.settings._constrainToTarget) {chart.barWidth -= chart.settings._constrainToTargetAdj}
         chart.barHeight = chart.settings.barHeight;
 
         // If the data was updated, reinitialize base metrics
@@ -356,17 +353,6 @@ function makePacingChart(settings) {
      */
     chart.update = function () {
 
-
-        // Get the current size of the viewport
-        // let t_width = parseInt(chart.objs.chartDiv.style("width"), 10);
-        // let t_height = parseInt(chart.objs.chartDiv.style("height"), 10);
-        // console.log(t_width, t_height);
-
-        //
-        // // Update scale functions
-        // chart.xScale.range([0, chart.width]);
-        // chart.yScale.range([chart.height, 0]);
-
         function calcMethods(metrics) {
             //These are the methods to convert raw data to position
             let methods = {
@@ -380,7 +366,7 @@ function makePacingChart(settings) {
                 methods.xScale = d3.scaleLinear()
                     .domain([0, metrics.metricsMax])
                     .range([0, chart.barWidth]);
-            } else {
+            } else { // NOTE: Not Implemented
                 // We want to keep all ranges at 100%, use the max target as 100%.
                 // If this is the case, we may have ranges go over and will need to clamp the data.
                 //  with the constrainToTargetAdj setting, the max of the bar can be reduced by a percentage to give some space for data larger than the target
@@ -842,9 +828,6 @@ function makePacingChart(settings) {
         // Capture the inner div for the chart (where the chart actually is)
         chart.selector = chart.settings.selector + " .inner-box";
         chart.objs.chartDiv = d3.select(chart.selector);
-
-        // Resize update hook
-        // d3.select(window).on('resize.' + chart.selector, function() {chart.update()});
 
         // Create the svg
         chart.objs.g = chart.objs.chartDiv.selectAll("div.chart-area")
