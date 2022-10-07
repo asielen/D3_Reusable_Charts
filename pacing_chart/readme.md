@@ -5,7 +5,7 @@ Features:
 * Flexibly track multiple breakdowns of targets and results
 * Colors and lables are easily styled in CSS
 * Supports multiple charts rendered in flexbox for easy layout
-* Built for reusability based on the concept outlined in Mike Bostocks blog post [Towards Reusable Charts.](http://bost.ocks.org/mike/chart/) 
+* Built for reusability based on the concept outlined in Mike Bostock's blog post [Towards Reusable Charts.](http://bost.ocks.org/mike/chart/) 
 
 Supports D3 v6 and v7
 

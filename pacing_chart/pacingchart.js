@@ -38,15 +38,19 @@ function makePacingChart(settings) {
         resultsCols: [],
         resultMarkersCols: [],
         titleCols: [],
-        chartWidth: 500,
-        barHeight: 35,
-        titlePadding: 100,
+        chartWidth: 450,
+        barHeight: 30,
+        titlePadding: 75,
         lowerSummaryPadding: 20,
         minWidthForPercent: 100,
         cumulativeTargets: true,
         cumulativeResults: true,
         summarizeTargets: false,
         summarizeResults: false,
+        barRadiusTargets: {t:{l:4,i:0,r:4},b:{l:0,i:0,r:0},hang:true}, // top [left, inside, right], bottom [left, inside, right], if hang = true, then curve top and bottom with the same radius even if it isn't specified
+        barRadiusResults: {t:{l:0,i:0,r:0},b:{l:4,i:0,r:4},hang:true}, // top [left, inside, right], bottom [left, inside, right]
+        barRadiusTargetsSummary: {t:{l:8,r:8},b:{l:0,r:0}}, // No inside definition because the summary is one bar
+        barRadiusResultsSummary: {t:{l:0,r:0},b:{l:0,r:0}},
         w_threshold: 25,
         p_threshold: .1,
         _constrainToTarget: false, // Not implemented
@@ -69,9 +73,9 @@ function makePacingChart(settings) {
         for (let setting in settings_map) {
             chart.settings[setting] = settings_map[setting]
             if (setting === 'data') {chart.data = chart.settings.data; dataUpdated=true}
-            if (['formatterValue','formatterValueToolTip','formatterPercent','tooltipGenerator'].includes(setting) && typeof setting === 'function'){
+            if (['formatterValue','formatterValueToolTip','formatterPercent','tooltipGenerator'].includes(setting) && typeof settings_map[setting] === 'function'){
                 // If it is one of the pre-defined functions, update that function
-                chart[setting] = setting;
+                chart[setting] = settings_map[setting];
             }
         }
         // Update base layout settings
@@ -84,6 +88,7 @@ function makePacingChart(settings) {
         if (dataUpdated){
             prepareData()
         }
+        console.log(chart.settings);
         return chart;
     }
 
@@ -159,6 +164,7 @@ function makePacingChart(settings) {
 
             chartObj.metrics.targets = parseValues(chart.settings.targetsCols, index, chart.settings.cumulativeTargets);
             chartObj.metrics.targetsMarkers = parseValues(chart.settings.targetsMarkersCols, index, chart.settings.cumulativeTargets);
+            chartObj.metrics.targetsLastIndex = chartObj.metrics.targets.length - 1
             chartObj.metrics.results = parseValues(chart.settings.resultsCols, index, chart.settings.cumulativeResults);
             chartObj.metrics.resultsMarkers = parseValues(chart.settings.resultMarkersCols, index, chart.settings.cumulativeResults);
             chartObj.metrics.resultsLastIndex = chartObj.metrics.results.length - 1
@@ -174,6 +180,9 @@ function makePacingChart(settings) {
             chartObj.metrics.resultsMarkersMin = Math.min(...chartObj.metrics.resultsMarkers.map(o => o.value));
 
             chartObj.metrics.metricsMax = Math.max(chartObj.metrics.targetsMax, chartObj.metrics.resultsMax, chartObj.metrics.targetsMarkersMax, chartObj.metrics.resultsMarkersMax);
+
+            chartObj.metrics.targetGreater = 0; // If 0 target and results are within 5%, if 1, target is larger, if -1, results is larger.
+                                                //  for bar radius calculation. Calculated with the xscale method in the methods function.
 
             // Calculate percent of max target for results
             // Used to tag with classes for css formatting
@@ -431,6 +440,67 @@ function makePacingChart(settings) {
             methods.calcResultX = chart.settings.cumulativeResults ? calcPreviousX(methods.xScale, metrics.results) : calcCumPreviousX(methods.xScale, metrics.results);
 
 
+            metrics.targetGreater = methods.calcWidth(metrics.targetsMax) - methods.calcWidth(metrics.resultsMax);
+            const pathFactory = (width_func, radius, last_index, hang_check) => {
+                // Todo, process different format of radius definitions
+                //  Single number + 4 corners + dict + list
+                return function(d,i) {
+                    console.log(d.name,d.value,i);
+                    let r = {t:{l:0,i:0,r:0},b:{l:0,i:0,r:0},hang:true} // radius = top [left, inside, right], bottom [left, inside, right]
+                    let w = width_func(d, i)
+                        , h = chart.barHeight
+                    // Left side
+                    if (i !== 0) {
+                        r.t.l = radius.t.i;
+                        r.b.l = radius.b.i;
+                    } else {
+                        r.t.l = radius.t.l;
+                        r.b.l = radius.b.l;
+                    }
+                    // Right Side
+                    if (i !== last_index) {
+                        r.t.r = radius.t.i;
+                        r.b.r = radius.b.i;
+                    } else {
+                        console.log(hang_check);
+                        let hr = Math.max(radius.b.r,radius.t.r);
+                        if (radius.hang && hang_check > 0 && (radius.b.r === 0 || radius.t.r === 0)) {
+                            if (hang_check < hr) {
+                                r.b.r = radius.b.r > 0 ? hr : hang_check;
+                                r.t.r = radius.t.r > 0 ? hr : hang_check;
+                            } else {
+                                r.b.r = hr;
+                                r.t.r = hr;
+                            }
+                        } else {
+                            r.t.r = radius.t.r;
+                            r.b.r = radius.b.r;
+                        }
+                    }
+                    console.log(r);
+                    let top = w - r.t.l - r.t.r // top width = base_width - top radiuses
+                        , right = h - r.t.r - r.b.r
+                        , bottom = w - r.b.r - r.b.l
+                        , left = h - r.b.l - r.t.l
+                    // t=top, b=bottom, l=left, r=right, i=inside (between boxes)
+                    let path_string = `M${r.t.l},0 
+                                        h${top} 
+                                        a${r.t.r} ${r.t.r}, 0, 0, 1, ${r.t.r} ${r.t.r} 
+                                        v${right} 
+                                        a${r.b.r} ${r.b.r}, 0, 0, 1, -${r.b.r} ${r.b.r}  
+                                        h-${bottom} 
+                                        a${r.b.l} ${r.b.l}, 0, 0, 1, -${r.b.l} -${r.b.l} 
+                                        v-${left} 
+                                        a${r.t.l} ${r.t.l}, 0, 0, 1, ${r.t.l} -${r.t.l} 
+                                        z`
+                    console.log(path_string);
+                    return path_string
+                }
+            }
+            methods.resultsPath = pathFactory(methods.calcResultWidth, chart.settings.barRadiusResults, metrics.resultsLastIndex, -metrics.targetGreater);
+            methods.targetsPath = pathFactory(methods.calcTargetWidth, chart.settings.barRadiusTargets, metrics.targetsLastIndex, metrics.targetGreater);
+
+
             // Formatting Methods
 
             /**
@@ -636,10 +706,9 @@ function makePacingChart(settings) {
                 .attr("y", chartObj.methods.targetsYPos)
                 .attr("x", chartObj.methods.calcTargetX)
 
-            g.append("rect")
+            g.append("path")
                 .attr("class", chartObj.methods.targetBarFormat)
-                .attr("width","100%")
-                .attr("height","100%")
+                .attr("d", chartObj.methods.targetsPath)
 
             g.append("text")
                 .attr("class", chartObj.methods.targetTextFormat)
@@ -664,10 +733,9 @@ function makePacingChart(settings) {
                 .attr("x", chartObj.methods.calcResultX)
                 .attr("y",chartObj.methods.resultsYPos)
 
-            r.append("rect")
+            r.append("path")
                 .attr("class", chartObj.methods.resultBarFormat)
-                .attr("width","100%")
-                .attr("height","100%")
+                .attr("d", chartObj.methods.resultsPath)
 
             r.append("text")
                 .attr("class", chartObj.methods.resultTextFormat)
@@ -844,7 +912,7 @@ function makePacingChart(settings) {
 
         chart.objs.titles.append("text")
           .attr("class", "title")
-          .attr("x","95")
+          .attr("x",chart.settings.titlePadding-5)
           .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
           .text(function(d) {
             return d[chart.settings.titleCols[0]];
@@ -853,7 +921,7 @@ function makePacingChart(settings) {
         chart.objs.titles.append("text")
           .attr("class", "subtitle")
           .attr("dy", "1em")
-          .attr("x","95")
+          .attr("x",chart.settings.titlePadding-5)
           .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
           .text(function(d) {
             return d[chart.settings.titleCols[1]];

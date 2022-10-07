@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <link rel="stylesheet" type="text/css" href="pacingchart-starter.css">
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+</head>
+<body>
+<p>Three milestones within the target, red yellow green. Also with a target and result marker.</p>
+<div class="chart-wrapper" id="chart-pacing-1"></div>
+<p>Single target, but two results bars that are additive. Summary bar turned on and custom format functions were set.</p>
+<div class="chart-wrapper" id="chart-pacing-2"></div>
+<p>Scaled results with summary text showing due</p>
+<div class="chart-wrapper" id="chart-pacing-3"></div>
+
+<script src="../pacingchart.js" charset="utf-8"></script>
+<script type="text/javascript">
+    let settings_1 = {
+            selector: '#chart-pacing-1',
+            targetsCols: [['RED_THRESHOLD','Red'],['YELLOW_THRESHOLD','Yellow'],'TARGET'], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
+            targetsMarkersCols: ['PREV_PROJECTED_AMOUNT'],
+            resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected']],
+            resultMarkersCols: ['PREV_AMOUNT'],
+            titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
+            chartWidth: 475
+        }
+    d3.csv('data-sample1.csv', function(data) {
+        data.TARGET = +data.TARGET; // Numerical data should be converted to numbers. This is easily achieved by prepending "+"
+        data.YELLOW_THRESHOLD = +data.YELLOW_THRESHOLD;
+        data.RED_THRESHOLD = +data.RED_THRESHOLD;
+        data.AMOUNT = +data.AMOUNT;
+        data.PROJECTED_AMOUNT = +data.PROJECTED_AMOUNT;
+        data.PREV_AMOUNT = +data.PREV_AMOUNT;
+        data.PREV_PROJECTED_AMOUNT = +data.PREV_PROJECTED_AMOUNT;
+        return data;
+    }).then( function(data) {return makePacingChart(settings_1).set({data:data}); }
+    ).then( function(chart) {chart.render()});
+
+
+    function noDecimalFormat(n) {
+        return d3.format(",.0f")(n);
+    }
+    function noDecimalFormatPercent(n) {
+        return d3.format(",.0%")(n);
+    }
+    let settings_2 = {
+            selector: '#chart-pacing-2',
+            targetsCols: ['TARGET'],
+            resultsCols: ['BLUE_AMOUNT','RED_AMOUNT'],
+            titleCols: ['TYPE','YEAR'],
+            cumulativeResults: false,
+            summarizeResults: true,
+            chartWidth: 475,
+        }
+    d3.csv('data-sample2.csv', function(data) {
+        data.TARGET = +data.TARGET;
+        data.BLUE_AMOUNT = +data.BLUE_AMOUNT;
+        data.RED_AMOUNT = +data.RED_AMOUNT;
+        return data;
+    }).then( function(data) {return makePacingChart(settings_2).set({data:data});}
+    ).then(function(chart) {return chart.set({formatterValue: noDecimalFormat,formatterPercent :noDecimalFormatPercent})}
+    ).then( function(chart) {console.log(chart); chart.render()});
+
+
+    let settings_3 = {
+            selector: '#chart-pacing-3',
+            targetsCols: ['TARGET'], // Either a list of strings that is the name of the column or a list of arrays that is [name of col, friendly name of column]
+            resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected']],
+            resultMarkersCols: [['PREV_AMOUNT','Previous Amount'],['PREV_PROJECTED_AMOUNT','Previous Projection']],
+            titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
+            chartWidth: 475,
+    }
+    d3.csv('data-sample3.csv', function(data) {
+        data.TARGET = +data.TARGET; // Numerical data should be converted to numbers. This is easily achieved by prepending "+"
+        data.AMOUNT = +data.AMOUNT;
+        data.PROJECTED_AMOUNT = +data.PROJECTED_AMOUNT;
+        data.PREV_AMOUNT = +data.PREV_AMOUNT;
+        data.PREV_PROJECTED_AMOUNT = +data.PREV_PROJECTED_AMOUNT;
+        return data;
+    }).then( function(data) {return makePacingChart(settings_3).set({data:data}); }
+    ).then( function(chart) {chart.render()});
+</script>
+</body>
+</html>

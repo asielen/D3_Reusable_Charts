@@ -1,122 +1,204 @@
-.chart-wrapper text {
-  font-family: sans-serif;
-  display: none;
-}
+/*
+* Basic styles to get you started.
+*
+*
+* A note on html class structure.
+*   The "pace-chart" class is appended to the element identified by the selector,
+*    as such, it can be used as the generic parent for all pace-chart related elements
+*
+*   Inside the pace-chart, there are two main divs:
+*       .inner-box - the main container/flex parent of the sub-chartObjects
+*       .tooltip - rendered on hover. ALl html within this div is provided by the tooltipGenerator function
+*
+*  Chart Objects (within the inner-box)
+*       Each subchart has it's own div with class "chart-area"
+*       Within that div, the svg element for the subchart is created.
+*       - This svg takes on the title and subtitle as classes as well as a unique random id
+*
+* Chart SVG
+*       The elements within the svg element are organized in g elements by type:
+*       - .title / .subtitle
+*       - .targets
+*       - .results
+*       - .targets-markers
+*       - .results-markers
+ */
 
-.chart-wrapper .targets .w25 text {
-    font-size: 8px;
-    display: initial;
+/*
+* Hide all text initially and then un-hide specifics as needed
+*/
+.pace-chart text {
+    font-family: sans-serif;
+    display: none;
 }
-
-.chart-wrapper .targets .w50 text {
+.pace-chart .chart-area {
+    filter: drop-shadow( 2px 2px 6px rgba(0, 0, 0, .2));
+}
+/*
+* Show and style the title and subtitle for each subchart object
+ */
+.pace-chart .title {
     font-size: 14px;
-}
-
-.chart-wrapper .targets .w100 text {
-    font-size: 24px;
-}
-
-.chart-wrapper .results .w25 text {
-    font-size: 8px;
+    font-weight: bold;
     display: initial;
 }
-.chart-wrapper .results .w50 text {
+.pace-chart .subtitle {
+    fill: #999;
+    font-size: 11px;
+    display: initial;
+}
+
+
+/*
+* Un-hide text based on width, Since anything that is greater than w25 will
+*   have the w25 class, this first one un-hides everything.
+*   -- w25, w50 correspond to pixel width, 25px, 50px.
+* Note: Everything below 25 px is still hidden in this starter css.
+*   To show text in bars shorter than 25px, update the w_threshold to something smaller than 25
+*   and then create teh style for that size. For example if w_threshold = 10, you could then
+*   show and style text on bars down to 10px wide.
+*   - Anything
+*/
+.pace-chart .targets .w25 text {
+    display: initial; /* Show all text in classes larger than 25px */
+    font-size: 7px;
+    font-weight: bold;
+    fill: white;
+}
+.pace-chart .targets .w50 text {
     font-size: 12px;
 }
-.chart-wrapper .results .w100 text {
-    font-size: 14px;
-}
-.chart-wrapper .results .w150 text {
-    font-size: 18px;
-}
-.chart-wrapper .results .w250 text {
+.pace-chart .targets .w100 text {
     font-size: 22px;
 }
 
-.chart-wrapper text.summary {
+/*
+* More gradations for results sizes to allow space for percent to goal
+ */
+.pace-chart .results .w25 text {
     display: initial;
+    font-size: 7px;
     font-weight: bold;
-    font-size: 14px
+    fill: white;
 }
-
-  .pace-chart .target {
-    fill: #306223;
-  }
-
-  .pace-chart .target.yellow {
-    fill: #77652a;
-  }
-
-  .pace-chart .target.red {
-    fill: #4e1f24;
-  }
-
-  .pace-chart .results-summary rect {
-    fill: #cde5fb;
-  }
-  .pace-chart .results-summary text {
-    display: initial;
-  }
-
-  .pace-chart .targets-summary rect {
-    fill: #cde5fb;
-  }
-  .pace-chart .targets-summary text {
-    display: initial;
-  }
-
-  .pace-chart .title {
-    font-size: 14px;
-    font-weight: bold;
-    display: initial;
-  }
-
-  .pace-chart .subtitle {
-    fill: #999;
+.pace-chart .results .w50 text {
+    font-size: 10px;
+}
+.pace-chart .results .w100 text {
     font-size: 12px;
-    display: initial;
-  }
-
-  .pace-chart .target.text {
-    font-weight: bold;
-    fill: white;
-  }
-
-  .pace-chart .result.text {
-    font-weight: bold;
-    fill: white;
-  }
-
-
-.chart-wrapper div.tooltip {
-    position: absolute;
-    text-align: left;
-    padding: 5px;
-    font: 12px sans-serif;
-    background: #fff;
-    box-shadow: 5px 5px 11px -5px rgba(0,0,0,0.67);
-    border: 0;
-    border-radius: 6px;
-    pointer-events: none;
-    opacity: 0.8;
+}
+.pace-chart .results .w150 text {
+    font-size: 16px;
+}
+.pace-chart .results .w250 text {
+    font-size: 20px;
 }
 
-.chart-wrapper div.tooltip .chart.title {
-    font-size: 14px;
+/*
+* All target boxes contain the target class.
+*   The example code below uses yellow and red as examples that come from
+*   the initialization of the targets. These are not default class values.
+ */
+.pace-chart .target {
+    fill: #35522e;
+}
+.pace-chart .target.yellow {
+    fill: #77652a;
+}
+.pace-chart .target.red {
+    fill: #4e1f24;
 }
 
-.chart-wrapper div.tooltip .title, .chart-wrapper div.tooltip .title {
-    font-weight: bold;
+
+/*
+* All target boxes contain the target class.
+*   This example shows using the default s0, s1 etc classes.
+*   These are default index classes provided by the render function
+ */
+.pace-chart .result.s0 {
+    fill: #0d1864;
+}
+.pace-chart .result.s1 {
+    fill: #1e2764;
+}
+.pace-chart .result.s2 {
+    fill: #3d4875;
 }
 
-.chart-wrapper .marker {
+/*
+* Markers are just lines, they can be styled however you wish
+ */
+.pace-chart .marker {
     stroke: #887e7e;
     opacity: 0.9;
     stroke-dasharray: 1, 2;
     stroke-width: 2px;
-  }
+}
 
-.chart-wrapper div.tooltip .selected {
+
+/*
+* For convenience, the total of the results is also rendered (but hidden)
+*   Below the results bar. Uncomment this to display.
+*   This is useful if your results bar is too narrow to show the full result
+*     but you still want to show it.
+*/
+/*
+.pace-chart .results text.summary {
+    display: initial;
+}
+*/
+/* For the demo, only the 3rd chart shows the summary text */
+.pace-chart#chart-pacing-3 .results text.summary {
+    display: initial;
+    font-size: 12px;
+}
+
+/*
+* If rendering summary bars, you will need to provide a fill and un-hide the text
+ */
+.pace-chart .results-summary rect {
+    fill: #cde5fb;
+}
+.pace-chart .results-summary text {
+    display: initial;
+}
+/*
+.pace-chart .targets-summary rect {
+    fill: #cde5fb;
+}
+.pace-chart .targets-summary text {
+    display: initial;
+}
+*/
+
+/*
+* Everything in the tooltip definition comes from the tooltipGenerator function.
+*
+ */
+/* Display styles, important no matter what the tooltip contains*/
+.pace-chart div.tooltip {
+    position: absolute;
+    text-align: left;
+    pointer-events: none;
+}
+
+/* Tooltip specific styling*/
+.pace-chart div.tooltip {
+    padding: 5px;
+    background: #fff;
+    box-shadow: 5px 5px 11px -5px rgba(0,0,0,0.67);
+    border: 0;
+    border-radius: 6px;
+    opacity: 0.8;
+    font: 12px sans-serif;
+}
+.pace-chart div.tooltip .chart.title {
+    font-size: 14px;
+}
+.pace-chart div.tooltip .title, .chart-wrapper div.tooltip .title {
+    font-weight: bold;
+}
+.pace-chart div.tooltip .selected {
     font-style: italic;
     background: wheat;
     font-size: 14px;
