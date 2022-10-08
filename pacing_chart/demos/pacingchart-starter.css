@@ -31,9 +31,26 @@
     font-family: sans-serif;
     display: none;
 }
-.pace-chart .chart-area {
-    filter: drop-shadow( 2px 2px 6px rgba(0, 0, 0, .2));
+
+/*
+* Setting overflow to visible for the parent svg allows us to have the shadow just on the bar elements (not on titles)
+*   and not have it cut off by the edge of the parent svg element
+ */
+.pace-chart .chart-area svg {
+    overflow: visible;
 }
+.pace-chart .chart-area .targets {
+    filter: drop-shadow( 4px 4px 2px rgba(0, 0, 0, .2));
+}
+
+/*
+* Hover state to let people know it is clickable
+ */
+.pace-chart a:hover {
+   filter: brightness(1.3);
+}
+
+
 /*
 * Show and style the title and subtitle for each subchart object
  */
@@ -156,20 +173,20 @@
 /*
 * If rendering summary bars, you will need to provide a fill and un-hide the text
  */
-.pace-chart .results-summary rect {
+.pace-chart .results-summary path {
     fill: #cde5fb;
 }
 .pace-chart .results-summary text {
     display: initial;
 }
-/*
-.pace-chart .targets-summary rect {
+
+.pace-chart .targets-summary path {
     fill: #cde5fb;
 }
 .pace-chart .targets-summary text {
     display: initial;
 }
-*/
+
 
 /*
 * Everything in the tooltip definition comes from the tooltipGenerator function.

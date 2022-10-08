@@ -23,6 +23,7 @@
             resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected']],
             resultMarkersCols: ['PREV_AMOUNT'],
             titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
+            summarizeTargets: true,
             chartWidth: 475
         }
     d3.csv('data-sample1.csv', function(data) {
@@ -70,6 +71,7 @@
             resultMarkersCols: [['PREV_AMOUNT','Previous Amount'],['PREV_PROJECTED_AMOUNT','Previous Projection']],
             titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
             chartWidth: 475,
+            linkCol: 'URL'
     }
     d3.csv('data-sample3.csv', function(data) {
         data.TARGET = +data.TARGET; // Numerical data should be converted to numbers. This is easily achieved by prepending "+"

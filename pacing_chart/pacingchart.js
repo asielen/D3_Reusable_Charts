@@ -38,6 +38,7 @@ function makePacingChart(settings) {
         resultsCols: [],
         resultMarkersCols: [],
         titleCols: [],
+        linkCol: null,
         chartWidth: 450,
         barHeight: 30,
         titlePadding: 75,
@@ -49,8 +50,6 @@ function makePacingChart(settings) {
         summarizeResults: false,
         barRadiusTargets: {t:{l:4,i:0,r:4},b:{l:0,i:0,r:0},hang:true}, // top [left, inside, right], bottom [left, inside, right], if hang = true, then curve top and bottom with the same radius even if it isn't specified
         barRadiusResults: {t:{l:0,i:0,r:0},b:{l:4,i:0,r:4},hang:true}, // top [left, inside, right], bottom [left, inside, right]
-        barRadiusTargetsSummary: {t:{l:8,r:8},b:{l:0,r:0}}, // No inside definition because the summary is one bar
-        barRadiusResultsSummary: {t:{l:0,r:0},b:{l:0,r:0}},
         w_threshold: 25,
         p_threshold: .1,
         _constrainToTarget: false, // Not implemented
@@ -88,7 +87,6 @@ function makePacingChart(settings) {
         if (dataUpdated){
             prepareData()
         }
-        console.log(chart.settings);
         return chart;
     }
 
@@ -144,12 +142,8 @@ function makePacingChart(settings) {
                 classes: [],
                 unique_id: "",
                 svg: {parent:null,title:null,subtitle:null,targets:null,results:null,targetsMarkers:null,resultsMarkers:null},
-                metrics : { //These are the original non-scaled values
-                    targets: [],
-                    results: [],
-                    targetsMarkers: [],
-                    resultsMarkers: []
-                }
+                metrics : {},
+                link: ""
             }
             chartObj.index = index;
             chartObj.unique_id = "g"+index+"-"+Math.random().toString(16).slice(2)
@@ -160,6 +154,10 @@ function makePacingChart(settings) {
                     chartObj.subtitle = row[chart.settings.titleCols[1]];
             } else {
                 chartObj.title = row[chart.settings.titleCols];
+            }
+
+            if (chart.settings.linkCol) {
+                chartObj.link = row[chart.settings.linkCol];
             }
 
             chartObj.metrics.targets = parseValues(chart.settings.targetsCols, index, chart.settings.cumulativeTargets);
@@ -183,6 +181,7 @@ function makePacingChart(settings) {
 
             chartObj.metrics.targetGreater = 0; // If 0 target and results are within 5%, if 1, target is larger, if -1, results is larger.
                                                 //  for bar radius calculation. Calculated with the xscale method in the methods function.
+
 
             // Calculate percent of max target for results
             // Used to tag with classes for css formatting
@@ -438,46 +437,41 @@ function makePacingChart(settings) {
 
             methods.calcTargetX = chart.settings.cumulativeTargets ? calcPreviousX(methods.xScale, metrics.targets) : calcCumPreviousX(methods.xScale, metrics.targets);
             methods.calcResultX = chart.settings.cumulativeResults ? calcPreviousX(methods.xScale, metrics.results) : calcCumPreviousX(methods.xScale, metrics.results);
-
-
             metrics.targetGreater = methods.calcWidth(metrics.targetsMax) - methods.calcWidth(metrics.resultsMax);
-            const pathFactory = (width_func, radius, last_index, hang_check) => {
-                // Todo, process different format of radius definitions
-                //  Single number + 4 corners + dict + list
+
+            const pathFactory = (width_func, radius, last_index, hang_check, hasSummary, isSummary) => {
                 return function(d,i) {
-                    console.log(d.name,d.value,i);
                     let r = {t:{l:0,i:0,r:0},b:{l:0,i:0,r:0},hang:true} // radius = top [left, inside, right], bottom [left, inside, right]
                     let w = width_func(d, i)
                         , h = chart.barHeight
+
                     // Left side
                     if (i !== 0) {
                         r.t.l = radius.t.i;
                         r.b.l = radius.b.i;
                     } else {
-                        r.t.l = radius.t.l;
-                        r.b.l = radius.b.l;
+                        r.t.l = hasSummary ? 0 : radius.t.l;
+                        r.b.l = isSummary ? 0 : radius.b.l;
                     }
                     // Right Side
                     if (i !== last_index) {
                         r.t.r = radius.t.i;
                         r.b.r = radius.b.i;
                     } else {
-                        console.log(hang_check);
                         let hr = Math.max(radius.b.r,radius.t.r);
                         if (radius.hang && hang_check > 0 && (radius.b.r === 0 || radius.t.r === 0)) {
                             if (hang_check < hr) {
+                                r.t.r = hasSummary ? 0 : radius.t.r > 0 ? hr : hang_check; // If there is a summary, set to 0, else if the radius should be greater than 0, set to the max of top and bottom, else set the difference between the two bars (so if one bar overhangs the other by 2 px but the radius is 5px, the radius will be set to 2 px
                                 r.b.r = radius.b.r > 0 ? hr : hang_check;
-                                r.t.r = radius.t.r > 0 ? hr : hang_check;
                             } else {
-                                r.b.r = hr;
-                                r.t.r = hr;
+                                r.t.r = hasSummary ? 0 : hr;
+                                r.b.r = isSummary ? 0 : hr;
                             }
                         } else {
-                            r.t.r = radius.t.r;
-                            r.b.r = radius.b.r;
+                            r.t.r = hasSummary ? 0 : radius.t.r;
+                            r.b.r = isSummary ? 0 : radius.b.r;
                         }
                     }
-                    console.log(r);
                     let top = w - r.t.l - r.t.r // top width = base_width - top radiuses
                         , right = h - r.t.r - r.b.r
                         , bottom = w - r.b.r - r.b.l
@@ -493,12 +487,14 @@ function makePacingChart(settings) {
                                         v-${left} 
                                         a${r.t.l} ${r.t.l}, 0, 0, 1, ${r.t.l} -${r.t.l} 
                                         z`
-                    console.log(path_string);
                     return path_string
                 }
             }
-            methods.resultsPath = pathFactory(methods.calcResultWidth, chart.settings.barRadiusResults, metrics.resultsLastIndex, -metrics.targetGreater);
-            methods.targetsPath = pathFactory(methods.calcTargetWidth, chart.settings.barRadiusTargets, metrics.targetsLastIndex, metrics.targetGreater);
+            methods.resultsPath = pathFactory(methods.calcResultWidth, chart.settings.barRadiusResults, metrics.resultsLastIndex, -metrics.targetGreater, chart.settings.summarizeResults, false);
+            methods.targetsPath = pathFactory(methods.calcTargetWidth, chart.settings.barRadiusTargets, metrics.targetsLastIndex, metrics.targetGreater, chart.settings.summarizeTargets, false);
+
+            methods.resultsSummaryPath = pathFactory(methods.calcResultWidth, chart.settings.barRadiusResults, 0, -metrics.targetGreater, false, true);
+            methods.targetsSummaryPath = pathFactory(methods.calcTargetWidth, chart.settings.barRadiusTargets, 0, metrics.targetGreater, false, true);
 
 
             // Formatting Methods
@@ -693,7 +689,11 @@ function makePacingChart(settings) {
          * Build all the svg elements for each sub-chart object
          */
         function buildChartObj(chartObj) {
-            chartObj.svg.targets = chartObj.g.append("g").attr("class","targets");
+            if (chartObj.link) {
+                chartObj.g.node().parentNode.href=chartObj.link;
+            }
+            chartObj.svg.bars = chartObj.g.append("g").attr("class","bars");
+            chartObj.svg.targets = chartObj.svg.bars.append("g").attr("class","targets");
 
             // Parent target bar svg
             let g = chartObj.svg.targets.selectAll("svg")
@@ -722,7 +722,7 @@ function makePacingChart(settings) {
                 });
             let xtEnd = chartObj.svg.targets.node().getBBox().width + chart.settings.titlePadding;
 
-            chartObj.svg.results = chartObj.g.append("g").attr("class","results");
+            chartObj.svg.results = chartObj.svg.bars.append("g").attr("class","results");
             let r = chartObj.svg.results.selectAll("svg")
                 .data(chartObj.metrics.results)
                 .enter()
@@ -773,7 +773,7 @@ function makePacingChart(settings) {
             }
 
             // Update the marker lines.
-           chartObj.svg.targetsMarkers = chartObj.g.append("g").attr("class","targets-markers");
+           chartObj.svg.targetsMarkers = chartObj.svg.bars.append("g").attr("class","targets-markers");
             let tm = chartObj.svg.targetsMarkers.selectAll("svg")
                 .data(chartObj.metrics.targetsMarkers)
                 .enter()
@@ -786,7 +786,7 @@ function makePacingChart(settings) {
                     return chartObj.methods.targetsYPos(d,i)+chart.barHeight
                 })
 
-            chartObj.svg.resultsMarkers = chartObj.g.append("g").attr("class","results-markers");
+            chartObj.svg.resultsMarkers = chartObj.svg.bars.append("g").attr("class","results-markers");
             let rm = chartObj.svg.resultsMarkers.selectAll("svg")
                 .data(chartObj.metrics.resultsMarkers)
                 .enter()
@@ -802,7 +802,7 @@ function makePacingChart(settings) {
 
             // If the summary settings are activated build those boxes
             if (chart.settings.summarizeTargets) {
-                chartObj.svg.targetsSummary = chartObj.g.append("g").attr("class", "targets-summary");
+                chartObj.svg.targetsSummary = chartObj.svg.bars.append("g").attr("class", "targets-summary");
                 let ts = chartObj.svg.targetsSummary.append("svg")
                     .attr("class", "summary")
                     .attr("width", xtEnd - chart.settings.titlePadding)
@@ -810,10 +810,9 @@ function makePacingChart(settings) {
                     .attr("x", chart.settings.titlePadding)
                     .attr("y", "0")
 
-                ts.append("rect")
-                    .attr("class", "summary")
-                    .attr("width", "100%")
-                    .attr("height", "100%")
+                ts.append("path")
+                    .attr("class","target summary")
+                    .attr("d", function() {return chartObj.methods.targetsSummaryPath({value:chartObj.metrics.targetsMax,name:'targetsSummary'},0)})
 
                 if ((xtEnd - chart.settings.titlePadding) <= chart.settings.minWidthForPercent) {
                     // If the length of the bar won't fit the full percent metrics, put the label at the end
@@ -837,18 +836,17 @@ function makePacingChart(settings) {
             }
 
             if (chart.settings.summarizeResults) {
-                chartObj.svg.resultsSummary = chartObj.g.append("g").attr("class","results-summary");
+                chartObj.svg.resultsSummary = chartObj.svg.bars.append("g").attr("class","results-summary");
                 let rs = chartObj.svg.resultsSummary.append("svg")
-                .attr("class", "summary")
-                .attr("width", xEnd-chart.settings.titlePadding)
-                .attr("height", chart.barHeight)
-                .attr("x", chart.settings.titlePadding)
-                .attr("y",function(d,i) {return chartObj.methods.targetsYPos(1,1)+chart.barHeight})
+                    .attr("class", "summary")
+                    .attr("width", xEnd - chart.settings.titlePadding)
+                    .attr("height", chart.barHeight)
+                    .attr("x", chart.settings.titlePadding)
+                    .attr("y",function(d,i) {return chartObj.methods.targetsYPos(1,1)+chart.barHeight})
 
-                rs.append("rect")
-                .attr("class", "summary")
-                .attr("width","100%")
-                .attr("height","100%")
+                rs.append("path")
+                    .attr("class", "result summary")
+                    .attr("d", function() {return chartObj.methods.resultsSummaryPath({value:chartObj.metrics.resultsMax,name:'resultsSummary'},0)})
 
                 if ((xEnd-chart.settings.titlePadding) <= chart.settings.minWidthForPercent) {
                     // If the length of the bar won't fit the full percent metrics, put the label at the end
@@ -903,29 +901,38 @@ function makePacingChart(settings) {
             .enter()
             .append("div")
             .attr("class", "group chart-area")
+
+        if (chart.settings.linkCol) {
+            chart.objs.g = chart.objs.g
+                .append("a")
+                .attr("target","_blank")
+                .attr("rel","noreferrer noopener")
+        }
+        chart.objs.g = chart.objs.g
             .append("svg")
             .attr("width", chart.width)
             .attr("height", chart.height);
 
         chart.objs.titles = chart.objs.g.append("g")
-          .style("text-anchor", "end")
+            .style("text-anchor", "end")
+            .attr("class", "titles")
 
         chart.objs.titles.append("text")
-          .attr("class", "title")
-          .attr("x",chart.settings.titlePadding-5)
-          .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
-          .text(function(d) {
-            return d[chart.settings.titleCols[0]];
-          });
+            .attr("class", "title")
+            .attr("x",chart.settings.titlePadding-5)
+            .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
+            .text(function(d) {
+                return d[chart.settings.titleCols[0]];
+            });
 
         chart.objs.titles.append("text")
-          .attr("class", "subtitle")
-          .attr("dy", "1em")
-          .attr("x",chart.settings.titlePadding-5)
-          .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
-          .text(function(d) {
-            return d[chart.settings.titleCols[1]];
-          });
+            .attr("class", "subtitle")
+            .attr("dy", "1em")
+            .attr("x",chart.settings.titlePadding-5)
+            .attr("y",(chart.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults))/2)
+            .text(function(d) {
+                return d[chart.settings.titleCols[1]];
+            });
 
         // Create tooltip div
         chart.objs.tooltip = chart.objs.mainDiv.append('div').attr('class', 'tooltip');
