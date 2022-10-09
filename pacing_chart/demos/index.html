@@ -24,7 +24,10 @@
             resultMarkersCols: ['PREV_AMOUNT'],
             titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
             summarizeTargets: true,
-            barRadiusTargets: {t:{l:4,i:0,r:4},b:{l:0,i:0,r:0},hang:false}
+            summarizeResults: true,
+            barRadiusTargets: {t:{l:4,i:0,r:4},b:{l:0,i:0,r:0},hang:true},
+            chartWidth: 450,
+            barHeight: 40
         }
     d3.csv('data-sample1.csv', function(data) {
         data.TARGET = +data.TARGET; // Numerical data should be converted to numbers. This is easily achieved by prepending "+"
