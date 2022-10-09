@@ -39,7 +39,7 @@
 .pace-chart .chart-area svg {
     overflow: visible;
 }
-.pace-chart .chart-area .targets {
+.pace-chart .chart-area .bars {
     filter: drop-shadow( 4px 4px 2px rgba(0, 0, 0, .2));
 }
 
@@ -117,15 +117,14 @@
 *   the initialization of the targets. These are not default class values.
  */
 .pace-chart .target {
-    fill: #35522e;
+    fill: #47653F;
 }
 .pace-chart .target.yellow {
-    fill: #77652a;
+    fill: #F7B801;
 }
 .pace-chart .target.red {
-    fill: #4e1f24;
+    fill: #C44900;
 }
-
 
 /*
 * All target boxes contain the target class.
@@ -133,13 +132,21 @@
 *   These are default index classes provided by the render function
  */
 .pace-chart .result.s0 {
-    fill: #0d1864;
+    fill: #294868;
 }
 .pace-chart .result.s1 {
-    fill: #1e2764;
+    fill: #38618C;
 }
 .pace-chart .result.s2 {
-    fill: #3d4875;
+    fill: #80CED7;
+}
+
+/*Demo specific*/
+.pace-chart .result.red-amount {
+    fill: #8c3861;
+}
+.pace-chart .result.blue-amount {
+    fill: #38618C;
 }
 
 /*
@@ -174,17 +181,19 @@
 * If rendering summary bars, you will need to provide a fill and un-hide the text
  */
 .pace-chart .results-summary path {
-    fill: #cde5fb;
+    fill: #cdb2dc;
 }
 .pace-chart .results-summary text {
     display: initial;
+    font-weight: bold;
 }
 
 .pace-chart .targets-summary path {
-    fill: #cde5fb;
+    fill: #cdb2dc;
 }
 .pace-chart .targets-summary text {
     display: initial;
+    font-weight: bold;
 }
 
 

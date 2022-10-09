@@ -14,15 +14,20 @@
  * @param settings.resultsCols The name of the columns used to define the results. It can be defined as an array of strings or an array of arrays where each subarray includes the column name and a display name
  * @param [settings.resultsMarkersCols] The name of the columns used to define the results markers. It can be defined as an array of strings or an array of arrays where each subarray includes the column name and a display name
  * @param [settings.titleCols] Array where the first column name is used as a title, the second (optional) one is used as a subtitle.
- * @param settings.chartWidth=500 The Max width of each chart within  the collection of charts
- * @param settings.barHeight=35 The height of each bar, each chart is two stacked charts to this value x2 is the total height of each subchart
- * @param settings.titlePadding=100 How much space to the left of the charts should be allocated to the title. The bar chart portion is adjusted down to the remaining space
+ * @param [settings.linkCol]=null A string of the column name containing urls. Each subchart can link to a single url
+ * @param settings.chartWidth=450 The Max width of each chart within  the collection of charts
+ * @param settings.barHeight=30 The height of each bar, each chart is two stacked charts to this value x2 is the total height of each subchart
+ * @param settings.titlePadding=75 How much space to the left of the charts should be allocated to the title. The bar chart portion is adjusted down to the remaining space
  * @param settings.lowerSummaryPadding=20 How much space to add below the charts to allow for results if the results exceed the end of the chart
  * @param settings.minWidthForPercent=100 The minimum numbers of pixels a result bar will be for the percent to be shown. Below this threshold, only the value is rendered
  * @param settings.cumulativeTargets=true If true, the targets are subsets of each other ie. the largest target is the total target. If false, the total target is the sum of all the targets.
  * @param settings.cumulativeResults=true If true, the results are subsets of each other ie. the largest result is the total result. If false, the total result is the sum of all the results.
  * @param settings.summarizeTargets=false If true, show a separate bar above the targets that is a sum of all the individual targets, mostly useful when paired with cumulativeTargets=false
  * @param settings.summarizeResults=false If true, show a separate bar above the results that is a sum of all the individual results, mostly useful when paired with cumulativeResults=false
+ * @param settings.barRadiusTargets The corner radiuses for the targets bars. An object in the following format: {t:{l:4,i:0,r:4},b:{l:0,i:0,r:0},hang:true}
+ * @param settings.barRadiusResults The corner radiuses for the results bars.
+ * @param settings.w_threshold=25 The increment of the "w" classes on targets and results. Every n pixels gets wn as a class. etc. =25 -> w25, w50, w75 etc
+ * @param settings.p_threshold=0.1 The increment of the "p" classes on results. As a decimal percent. 0.1 = 10%
  * @returns {object} A chart object
  */
 function makePacingChart(settings) {
@@ -179,9 +184,9 @@ function makePacingChart(settings) {
 
             chartObj.metrics.metricsMax = Math.max(chartObj.metrics.targetsMax, chartObj.metrics.resultsMax, chartObj.metrics.targetsMarkersMax, chartObj.metrics.resultsMarkersMax);
 
-            chartObj.metrics.targetGreater = 0; // If 0 target and results are within 5%, if 1, target is larger, if -1, results is larger.
-                                                //  for bar radius calculation. Calculated with the xscale method in the methods function.
-
+            // If 0 target and results are within 5%, if 1, target is larger, if -1, results is larger.
+            //  for bar radius calculation. Calculated with the xscale method in the methods function.
+            chartObj.metrics.targetGreater = 0;
 
             // Calculate percent of max target for results
             // Used to tag with classes for css formatting
@@ -261,7 +266,7 @@ function makePacingChart(settings) {
     chart.tooltipGenerator = function(groupObj, event){
         let tooltipString = '<span class="chart title">'+groupObj.title;
         if (groupObj.subtitle) {
-            tooltipString += " "+groupObj.subtitle;
+            tooltipString += " | "+groupObj.subtitle;
         }
         let selected = "";
         tooltipString += '</span><hr>Targets:'
@@ -384,61 +389,71 @@ function makePacingChart(settings) {
             }
 
             // Calculate the difference from minScale (=0) to a number
-            methods.calcWidth = ((scaleFunc) => {
-                // Takes a scale function and gets the 0 position of scale
-                // returns a function that gives the difference from the 0 value to "d" as the width
-                var x0 = scaleFunc(0); // Position at value 0
-                return (n) => {
-                    return Math.abs(scaleFunc(n) - x0);
-                };
-            })(methods.xScale)
+            methods.calcWidth = (n) => {
+                return Math.abs(methods.xScale(n) - methods.xScale(0));
+            }
 
-            const calcPreviousWidth = (scaleFunc, values, cumulative) => {
+            // Not sure that this needs to be a closure. Advantage of this one is not needing to recalculate scale of 0
+            // methods.calcWidth = ((scaleFunc) => {
+            //     // Takes a scale function and gets the 0 position of scale
+            //     // returns a function that gives the difference from the 0 value to "d" as the width
+            //     var x0 = scaleFunc(0); // Position at value 0
+            //     return (n) => {
+            //         return Math.abs(scaleFunc(n) - x0);
+            //     };
+            // })(methods.xScale)
+
+            /**
+             * Calculates the width of a bar while taking into consideration the width of previous bars.
+             */
+            const calcWidthLessPrevious = (values, cumulative) => {
                 return (n,i) => {
                     if (i > 0 && i <= values.length - 1 && cumulative) {
-                        return Math.abs(scaleFunc(n.value) - scaleFunc(values[i - 1].value));
+                        return Math.abs(methods.xScale(n.value) - methods.xScale(values[i - 1].value));
                     } else {
                         return methods.calcWidth(n.value);
                     }
                 };
             }
 
-            methods.calcTargetWidth = calcPreviousWidth(methods.xScale, metrics.targets, chart.settings.cumulativeTargets);
-            methods.calcResultWidth = calcPreviousWidth(methods.xScale, metrics.results, chart.settings.cumulativeResults);
+            methods.calcTargetWidth = calcWidthLessPrevious(metrics.targets, chart.settings.cumulativeTargets);
+            methods.calcResultWidth = calcWidthLessPrevious(metrics.results, chart.settings.cumulativeResults);
 
-            methods.calcTargetMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
-            methods.calcResultMarkerX = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
+            // For markers, position is simplified since we don't need to take into account other markers
+            methods.calcTargetMarkerXPos = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
+            methods.calcResultMarkerXPos = (n) => {return methods.calcWidth(n.value)+chart.settings.titlePadding};
 
-            const calcPreviousX = (scaleFunc, values) => {
-                return function(d, i) {
+            /**
+             * If the metrics is not cumulative, this sums all previous widths. If it is cumulative, it only gets the immediate predecessor.
+             */
+            const calcXLessPrevious = (values, cumulative) => {
+                return function(d,i) {
                     let x = chart.settings.titlePadding;
                     if (i > 0 && i <= values.length - 1) {
-                        return x + scaleFunc(values[i - 1].value);
-                    } else {
-                        return x;
-                    }
-                };
-            }
-
-            const calcCumPreviousX = (scaleFunc, values) => {
-                // For cumulative need to add the previous x with the previous width. Not just the previous width
-                return function(d,i) {
-                    let c = chart.settings.titlePadding;
-                    if (i > 0 && i <= values.length - 1) {
                         for (let j = i-1; j >= 0; j--) {
-                            c += scaleFunc(values[j].value)
+                            x += methods.xScale(values[j].value)
+                            if (cumulative) {break}
                         }
-                        return c;
-                    } else {
-                        return c;
                     }
+                    return x;
                 };
             }
 
-            methods.calcTargetX = chart.settings.cumulativeTargets ? calcPreviousX(methods.xScale, metrics.targets) : calcCumPreviousX(methods.xScale, metrics.targets);
-            methods.calcResultX = chart.settings.cumulativeResults ? calcPreviousX(methods.xScale, metrics.results) : calcCumPreviousX(methods.xScale, metrics.results);
+            methods.calcTargetX = calcXLessPrevious(metrics.targets,chart.settings.cumulativeTargets);
+            methods.calcResultX = calcXLessPrevious(metrics.results,chart.settings.cumulativeResults);
             metrics.targetGreater = methods.calcWidth(metrics.targetsMax) - methods.calcWidth(metrics.resultsMax);
 
+            /**
+             * Creates the rectangle for each target and result with rounded corners.
+             *  This is done with path objects because svg rectangles do not support rounded corners on just specific corners.
+             * @param width_func The function that returns the width of the bar. Results or Targets
+             * @param radius The radius definition from settings
+             * @param last_index The value of the last index of the metric type. Used to identify if the bar is the last of its type or is a middle bar.
+             * @param hang_check The value of targetGreater. If positive, this bar "hangs" out from the one above or below it and the corners are adjusted.
+             * @param hasSummary True/False - If true, the summary bar is also being generated above this bar. (Note this is false for the summary bar itself)
+             * @param isSummary True/False - The current bar being generated is a summary bar
+             * @return {function(*, *): string}
+             */
             const pathFactory = (width_func, radius, last_index, hang_check, hasSummary, isSummary) => {
                 return function(d,i) {
                     let r = {t:{l:0,i:0,r:0},b:{l:0,i:0,r:0},hang:true} // radius = top [left, inside, right], bottom [left, inside, right]
@@ -458,6 +473,15 @@ function makePacingChart(settings) {
                         r.t.r = radius.t.i;
                         r.b.r = radius.b.i;
                     } else {
+                        /**
+                         * - Get the largest of the top and bottom right radius from settings.
+                         * - If the bar is hanging (as defined as larger than the one above or below) and hang is true
+                         * -- Set the top and bottom radiuses to the same value, even if one of them wasn't initially set.
+                         * --- For example, if the Target is smaller than the Result and the target has only a top radius set, then only the top radius will be rendered
+                         * ---  If the Target is greater than the result and only has a top radius set, both top and bottom radiuses will be rendered
+                         * -- If the gap between the bars is less than the radius in settings, adjust down the radius to match the gap
+                         * - If hang=false, it will not auto-adjust any of these settings and will only follow the radius settings
+                         */
                         let hr = Math.max(radius.b.r,radius.t.r);
                         if (radius.hang && hang_check > 0 && (radius.b.r === 0 || radius.t.r === 0)) {
                             if (hang_check < hr) {
@@ -531,22 +555,6 @@ function makePacingChart(settings) {
              */
             methods.targetTextLabel = (d, i) => {
                 return chart.formatterValue(d.value);
-            }
-
-            /**
-             * Generated classes for the targets text
-             * Generally if you want to target the text, you can just reference the parent SVG classes
-             * @param d - chartObj
-             * @param i - index
-             * @return {string}
-             */
-            methods.targetTextFormat = (d,i) => {
-                let return_text = "target text s" + i;
-                return_text += " " + makeSafeForCSS(d.column);
-                if (d.column !== d.name) {
-                    return_text += " " + makeSafeForCSS(d.name);
-                }
-                return return_text;
             }
 
             /**
@@ -629,22 +637,6 @@ function makePacingChart(settings) {
             }
 
             /**
-             * Generated classes for the results text
-             * Generally if you want to target the text, you can just reference the parent SVG classes
-             * @param d - chartObj
-             * @param i - index
-             * @return {string}
-             */
-            methods.resultTextFormat = (d,i) => {
-                let return_text = "result text s" + i;
-                return_text += " " + makeSafeForCSS(d.column);
-                if (d.column !== d.name) {
-                    return_text += " " + makeSafeForCSS(d.name);
-                }
-                return return_text;
-            }
-
-            /**
              * Generated classes for the target markers
              * @param d - chartObj
              * @param i - index
@@ -707,11 +699,9 @@ function makePacingChart(settings) {
                 .attr("x", chartObj.methods.calcTargetX)
 
             g.append("path")
-                .attr("class", chartObj.methods.targetBarFormat)
                 .attr("d", chartObj.methods.targetsPath)
 
             g.append("text")
-                .attr("class", chartObj.methods.targetTextFormat)
                 .attr("dy", '.1em')
                 .attr("y","50%")
                 .attr("x","50%")
@@ -734,11 +724,9 @@ function makePacingChart(settings) {
                 .attr("y",chartObj.methods.resultsYPos)
 
             r.append("path")
-                .attr("class", chartObj.methods.resultBarFormat)
                 .attr("d", chartObj.methods.resultsPath)
 
             r.append("text")
-                .attr("class", chartObj.methods.resultTextFormat)
                 .attr("dy", '.1em')
                 .attr("y","50%")
                 .attr("x","50%")
@@ -779,8 +767,8 @@ function makePacingChart(settings) {
                 .enter()
                 .append("line")
                 .attr("class", chartObj.methods.targetMarkerFormat)
-                .attr("x1", chartObj.methods.calcTargetMarkerX)
-                .attr("x2", chartObj.methods.calcTargetMarkerX)
+                .attr("x1", chartObj.methods.calcTargetMarkerXPos)
+                .attr("x2", chartObj.methods.calcTargetMarkerXPos)
                 .attr("y1", chartObj.methods.targetsYPos)
                 .attr("y2", function(d,i) {
                     return chartObj.methods.targetsYPos(d,i)+chart.barHeight
@@ -792,8 +780,8 @@ function makePacingChart(settings) {
                 .enter()
                 .append("line")
                 .attr("class", chartObj.methods.resultMarkerFormat)
-                .attr("x1", chartObj.methods.calcResultMarkerX)
-                .attr("x2", chartObj.methods.calcResultMarkerX)
+                .attr("x1", chartObj.methods.calcResultMarkerXPos)
+                .attr("x2", chartObj.methods.calcResultMarkerXPos)
                 .attr("y1", chartObj.methods.resultsYPos)
                 .attr("y2", function(d,i) {
                     return chartObj.methods.resultsYPos(d,i)+chart.barHeight
@@ -902,12 +890,14 @@ function makePacingChart(settings) {
             .append("div")
             .attr("class", "group chart-area")
 
+        // If a link col was provided. Wrap each chart in "a" tags
         if (chart.settings.linkCol) {
             chart.objs.g = chart.objs.g
                 .append("a")
                 .attr("target","_blank")
                 .attr("rel","noreferrer noopener")
         }
+
         chart.objs.g = chart.objs.g
             .append("svg")
             .attr("width", chart.width)

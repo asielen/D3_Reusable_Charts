@@ -7,11 +7,11 @@
     <script src="https://d3js.org/d3.v6.min.js"></script>
 </head>
 <body>
-<p>Three milestones within the target, red yellow green. Also with a target and result marker.</p>
+<p>Three milestones within the target, red yellow green. Also shows data with a target and result marker and border radius hang=false</p>
 <div class="chart-wrapper" id="chart-pacing-1"></div>
 <p>Single target, but two results bars that are additive. Summary bar turned on and custom format functions were set.</p>
 <div class="chart-wrapper" id="chart-pacing-2"></div>
-<p>Scaled results with summary text showing due</p>
+<p>Scaled results with summary text showing because the size of the final bar is too short.</p>
 <div class="chart-wrapper" id="chart-pacing-3"></div>
 
 <script src="../pacingchart.js" charset="utf-8"></script>
@@ -24,7 +24,7 @@
             resultMarkersCols: ['PREV_AMOUNT'],
             titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
             summarizeTargets: true,
-            chartWidth: 475
+            barRadiusTargets: {t:{l:4,i:0,r:4},b:{l:0,i:0,r:0},hang:false}
         }
     d3.csv('data-sample1.csv', function(data) {
         data.TARGET = +data.TARGET; // Numerical data should be converted to numbers. This is easily achieved by prepending "+"
@@ -52,7 +52,6 @@
             titleCols: ['TYPE','YEAR'],
             cumulativeResults: false,
             summarizeResults: true,
-            chartWidth: 475,
         }
     d3.csv('data-sample2.csv', function(data) {
         data.TARGET = +data.TARGET;
@@ -70,7 +69,6 @@
             resultsCols: ['AMOUNT', ['PROJECTED_AMOUNT','Projected']],
             resultMarkersCols: [['PREV_AMOUNT','Previous Amount'],['PREV_PROJECTED_AMOUNT','Previous Projection']],
             titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
-            chartWidth: 475,
             linkCol: 'URL'
     }
     d3.csv('data-sample3.csv', function(data) {

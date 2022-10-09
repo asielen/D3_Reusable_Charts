@@ -1,4 +1,7 @@
-A reusable and configurable chart to track performance against targets. Based on the common bullet chart, this simplified presentation is easily digestible for presentations and regular kpi updates.
+# Pacing Charts
+
+
+A reusable and configurable chart to track performance against targets. Based on the common bullet chart, this simplified presentation is easily digestible for presentations and regular kpi updates. Can also be used as a more data-to-ink dense replacement of a [dial chart.](https://stats.stackexchange.com/questions/30476/if-gauge-charts-are-bad-why-do-cars-have-gauges)
 
 Features:
 
@@ -16,12 +19,10 @@ Supports D3 v6 and v7
  eg:  <script src="https://d3js.org/d3.v6.min.js"></script>
 3. Add to your html head:
   <script src="pacingchart.js" charset="utf-8"></script>
-  <link rel="stylesheet" type="text/css" href="pacingchart-base.css"> 
   <link rel="stylesheet" type="text/css" href="demos/pacingchart-starter.css">
 
-The two css files are optional however, the charts will look very dull without some styling to start. 
-pacingchart-base.css 
-pacingchart-starter.css Is a good template to start tweaking your own styles
+The css is not strictly required. It provides the base styles for the demo and is a useful starting point for your own charts.
+pacingchart-starter.css 
 
 4. Prepare your data (see below)
 5. Initialize the charts (see below)
@@ -50,10 +51,10 @@ The makePacingChart() function takes an object map. The following data is requir
 
 - **data** - The data map as outlined in the first section
 - **selector** - STRING - The css selector for where the charts should be created
-- **titleCols** - ARRAY - At least one **Column Name/Key** to be used as the identifier for each subchart. *This is not the value of the columns but just the key/column name used to lookup the title values*. 
+- **titleCols** - ARRAY - At least one **Column Name/Key** to be used as the identifier for each subchart. *This is not the value of the columns but just the key/column name used to look up the title values*. 
   - You can also include a second **Column Name** in this array. That will be used as a subtitle. *Any additional values are ignored.
 - **targetsCols** - ARRAY - At least one **Column Name/Key** to be used to identify the targets. 
-  - You can also supply a human-readible version of the identifier that can be used in the tool tip. `For example: targetCols = [["col1","Initial Target"],["col2","Final Target"]]` 
+  - You can also supply a human-readable version of the identifier that can be used in the tool tip. `For example: targetCols = [["col1","Initial Target"],["col2","Final Target"]]` 
   - *If no human-readable form is provided, the provided key will be used for the tooltip. 
 - **resultsCols** - ARRAY - At least one **Column Name/Key** to be used to identify the results.
   - Like targetsCols, this also supports a human-readable string. 
@@ -61,13 +62,19 @@ The makePacingChart() function takes an object map. The following data is requir
   - Like targetsCols, this also supports a human-readable string. 
 - **resultsMarkersCols** - ARRAY - At least one **Column Name/Key** to be used to identify the target markers. Can be null.
   - Like targetsCols, this also supports a human-readable string. 
+- **linkCol** - STRING - The column that contains a link for each subchart.
 
 Formatting options:
-- **chartWidth** - Default: 500 - How wide in pixels should the subcharts be. This includes padding and titles.
-- **barHeight** - Default: 35 - How tall in pixels should each bar be. Note, at a minimum each subchart is 2x this number (35px for targets + 35px for results). Up to 4x this number depending on other options. 
-- **titlePadding** - Default: 100 - How much space should be allocated for the title for each chart in pixels.
-        lowerSummaryPadding: 20,
-        minWidthForPercent: 100,
+- **chartWidth** - Default: 450 - How wide in pixels should the subcharts be. This includes padding and titles.
+- **barHeight** - Default: 30 - How tall in pixels should each bar be. Note, at a minimum each subchart is 2x this number (30px for targets + 30px for results). Up to 4x this number depending on other options. 
+- **titlePadding** - Default: 75 - How much space should be allocated for the title for each chart in pixels.
+- **lowerSummaryPadding** - Default: 20 - How much space below each subchart should be allocated for summary text. 
+- **minWidthForPercent** - Default: 100 - How wide in pixes must a results bar be before showing the percent to target
+- **barRadiusTargets** - Default: {t:{l:4,i:0,r:4},b:{l:0,i:0,r:0},hang:true}
+  - t = top | b = bottom | l = left | i = inside | r = right
+  - This map object describes the border radius for the bars. For example if t.l = 4 then the top left corner of the bar will be curved 4 pixels
+  - If hang=true then bars that hang out over other bars are given equal top and bottom corner radiuses, even if only one of top or bottom is supplied. 
+- **barRadiusResults** - See above
 
 ## Templatizing Settings using Chart.set({settings})
 If rendering multiple charts from similar data, you can templatize the settings to keep the initialization cleaner. Using the "set" method allows you to update any chart settings after initialization.
@@ -199,7 +206,7 @@ The function takes two parameters:
 
 And returns a text string that is injected into the tooltip div on hover.
 
-### Formatting
+### Text Formatting
 Pacing chart provides three formatting functions:
 1. Main number format (chart.formatterValue)
    - How the numbers are presented on the bars
@@ -208,4 +215,4 @@ Pacing chart provides three formatting functions:
 3. Tooltip number format (chart.formatterValueToolTip)
    - How the numbers are presented in the tool tip
 
-ALl three of these can be overwritten before rendering the chart. They each take a single parameter, a number to format and return a formatted string.
+All three of these can be overwritten before rendering the chart. They each take a single parameter, a number to format and return a formatted string.
