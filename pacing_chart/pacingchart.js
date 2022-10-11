@@ -1,6 +1,6 @@
 /**
  * @fileOverview A D3 based chart for tracking progress against goals. Variation of a bullet chart.
- * @version 1.0
+ * @version 1.02
  * Tested on d3 v6 and v7
  */
 
@@ -73,10 +73,9 @@ function makePacingChart(settings) {
      * @return the chart object so it can be chained
      */
     chart.set = (settings_map) => {
-        let dataUpdated = false;
         for (let setting in settings_map) {
             chart.settings[setting] = settings_map[setting]
-            if (setting === 'data') {chart.data = chart.settings.data; dataUpdated=true}
+            if (setting === 'data') {chart.data = chart.settings.data;}
             if (['formatterValue','formatterValueToolTip','formatterPercent','tooltipGenerator'].includes(setting) && typeof settings_map[setting] === 'function'){
                 // If it is one of the pre-defined functions, update that function
                 chart[setting] = settings_map[setting];
@@ -88,10 +87,6 @@ function makePacingChart(settings) {
         chart.barWidth = chart.settings.chartWidth - chart.settings.titlePadding;
         chart.barHeight = chart.settings.barHeight;
 
-        // If the data was updated, reinitialize base metrics
-        if (dataUpdated){
-            prepareData()
-        }
         return chart;
     }
 
@@ -174,13 +169,13 @@ function makePacingChart(settings) {
 
             // Depending on the settings, these are used to identify the max width of the bars
             // The standard is that the largest value across all measures is the max width.
-            chartObj.metrics.targetsMax = !chart.settings.cumulativeTargets ? chartObj.metrics.targets.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.targets.map(o => o.value)); // The largest target is used as the main target. Should this be more flexible?
-            chartObj.metrics.targetsMarkersMax = Math.max(...chartObj.metrics.targetsMarkers.map(o => o.value));
+            chartObj.metrics.targetsMax = (!chart.settings.cumulativeTargets ? chartObj.metrics.targets.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.targets.map(o => o.value)))||0; // The largest target is used as the main target. Should this be more flexible?
+            chartObj.metrics.targetsMarkersMax = (Math.max(...chartObj.metrics.targetsMarkers.map(o => o.value)))||0;
 
-            chartObj.metrics.resultsMax = !chart.settings.cumulativeResults ? chartObj.metrics.results.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.results.map(o => o.value));
-            chartObj.metrics.resultsMin = Math.min(...chartObj.metrics.results.map(o => o.value));
-            chartObj.metrics.resultsMarkersMax = Math.max(...chartObj.metrics.resultsMarkers.map(o => o.value));
-            chartObj.metrics.resultsMarkersMin = Math.min(...chartObj.metrics.resultsMarkers.map(o => o.value));
+            chartObj.metrics.resultsMax = (!chart.settings.cumulativeResults ? chartObj.metrics.results.map(o => +o.value).reduce((a,b)=>a+b) : Math.max(...chartObj.metrics.results.map(o => o.value)))||0;
+            chartObj.metrics.resultsMin = (Math.min(...chartObj.metrics.results.map(o => o.value)))||0;
+            chartObj.metrics.resultsMarkersMax = (Math.max(...chartObj.metrics.resultsMarkers.map(o => o.value)))||0;
+            chartObj.metrics.resultsMarkersMin = (Math.min(...chartObj.metrics.resultsMarkers.map(o => o.value)))||0;
 
             chartObj.metrics.metricsMax = Math.max(chartObj.metrics.targetsMax, chartObj.metrics.resultsMax, chartObj.metrics.targetsMarkersMax, chartObj.metrics.resultsMarkersMax);
 
@@ -201,7 +196,7 @@ function makePacingChart(settings) {
 
             // Also the chart object itself gets a class append for the target to results
             chartObj.classes.push("p"+(roundUpNearest10((chartObj.metrics.resultsMax/chartObj.metrics.targetsMax)*100)).toString())
-
+            console.log(chartObj);
             return chartObj;
         }
 
@@ -390,7 +385,8 @@ function makePacingChart(settings) {
 
             // Calculate the difference from minScale (=0) to a number
             methods.calcWidth = (n) => {
-                return Math.abs(methods.xScale(n) - methods.xScale(0));
+                //n||0 converts null to 0
+                return Math.abs(methods.xScale(n||0) - methods.xScale(0));
             }
 
             // Not sure that this needs to be a closure. Advantage of this one is not needing to recalculate scale of 0
@@ -496,9 +492,18 @@ function makePacingChart(settings) {
                             r.b.r = isSummary ? 0 : radius.b.r;
                         }
                     }
-                    let top = w - r.t.l - r.t.r // top width = base_width - top radiuses
+                    // If the width is less than the radiuses
+                    if (w < (r.t.l + r.t.r) || w < (r.b.r + r.b.l)) {
+                        let rt = w/2;
+                        r.t.l = r.t.l ? rt : 0;
+                        r.t.r = r.t.r ? rt : 0;
+                        r.b.l = r.b.l ? rt : 0;
+                        r.b.r = r.b.r ? rt : 0;
+                    }
+
+                    let top = Math.max(w - r.t.l - r.t.r,0) // top width = base_width - top radiuses
                         , right = h - r.t.r - r.b.r
-                        , bottom = w - r.b.r - r.b.l
+                        , bottom = Math.max(w - r.b.r - r.b.l,0)
                         , left = h - r.b.l - r.t.l
                     // t=top, b=bottom, l=left, r=right, i=inside (between boxes)
                     let path_string = `M${r.t.l},0 
@@ -872,6 +877,7 @@ function makePacingChart(settings) {
      * Prepare the chart html elements
      */
     chart.render = function() {
+        prepareData()
         // Build main div and chart div
         chart.objs.mainDiv = d3.select(chart.settings.selector);
         chart.objs.mainDiv.node().classList.add("pace-chart");
