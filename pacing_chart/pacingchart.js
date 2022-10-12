@@ -1,6 +1,6 @@
 /**
  * @fileOverview A D3 based chart for tracking progress against goals. Variation of a bullet chart.
- * @version 1.02
+ * @version 1.03
  * Tested on d3 v6 and v7
  */
 
