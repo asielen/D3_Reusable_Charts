@@ -20,6 +20,7 @@
  * @param settings.titlePadding=75 How much space to the left of the charts should be allocated to the title. The bar chart portion is adjusted down to the remaining space
  * @param settings.lowerSummaryPadding=20 How much space to add below the charts to allow for results if the results exceed the end of the chart
  * @param settings.minWidthForPercent=100 The minimum numbers of pixels a result bar will be for the percent to be shown. Below this threshold, only the value is rendered
+ * @param settings.respChartCols=2 The number of columns to keep together as the screen size changes. If 0, then the charts will not scale at all. If 1, they will only scale when the width is less than the chartWidth
  * @param settings.cumulativeTargets=true If true, the targets are subsets of each other ie. the largest target is the total target. If false, the total target is the sum of all the targets.
  * @param settings.cumulativeResults=true If true, the results are subsets of each other ie. the largest result is the total result. If false, the total result is the sum of all the results.
  * @param settings.summarizeTargets=false If true, show a separate bar above the targets that is a sum of all the individual targets, mostly useful when paired with cumulativeTargets=false
@@ -49,6 +50,7 @@ function makePacingChart(settings) {
         titlePadding: 75,
         lowerSummaryPadding: 20,
         minWidthForPercent: 100,
+        respChartCols: 2,
         cumulativeTargets: true,
         cumulativeResults: true,
         summarizeTargets: false,
@@ -86,7 +88,7 @@ function makePacingChart(settings) {
         chart.height = (chart.settings.barHeight * (2 + chart.settings.summarizeTargets + chart.settings.summarizeResults) + chart.settings.lowerSummaryPadding)
         chart.barWidth = chart.settings.chartWidth - chart.settings.titlePadding;
         chart.barHeight = chart.settings.barHeight;
-
+        chart.currentChartWidth = chart.settings.chartWidth;
         return chart;
     }
 
@@ -196,7 +198,6 @@ function makePacingChart(settings) {
 
             // Also the chart object itself gets a class append for the target to results
             chartObj.classes.push("p"+(roundUpNearest10((chartObj.metrics.resultsMax/chartObj.metrics.targetsMax)*100)).toString())
-            console.log(chartObj);
             return chartObj;
         }
 
@@ -230,6 +231,7 @@ function makePacingChart(settings) {
      */
     chart.formatterValueToolTip = (d) => {
         // Always return at least 1 decimal in abbreviated view
+        if (!d) {d = 0};
         let dmod = Math.ceil(Math.log10(d + 1))%3;
         if (dmod === 0) {
             // If there are decimal points
@@ -355,6 +357,16 @@ function makePacingChart(settings) {
         return name
     }
 
+    chart.resize = function(event) {
+        if (chart.settings.respChartCols < 1) return;
+        let width = parseInt(chart.objs.mainDiv.style("width"), 10);
+        let chartWidth = Math.max(chart.settings.chartWidth * chart.settings.respChartCols, chart.settings.chartWidth) // Number of charts to show with a minimum of 1
+        if(width < chartWidth || (width > chart.currentChartWidth * chart.settings.respChartCols && width < chartWidth)) {
+            chart.currentChartWidth = width/chart.settings.respChartCols
+            chart.objs.g.attr("width",chart.currentChartWidth);
+        }
+    }
+
     /**
      * For each chartObj, calculate the relevant metrics that are affected by the size of the chart
      *  Range, width etc
@@ -388,16 +400,6 @@ function makePacingChart(settings) {
                 //n||0 converts null to 0
                 return Math.abs(methods.xScale(n||0) - methods.xScale(0));
             }
-
-            // Not sure that this needs to be a closure. Advantage of this one is not needing to recalculate scale of 0
-            // methods.calcWidth = ((scaleFunc) => {
-            //     // Takes a scale function and gets the 0 position of scale
-            //     // returns a function that gives the difference from the 0 value to "d" as the width
-            //     var x0 = scaleFunc(0); // Position at value 0
-            //     return (n) => {
-            //         return Math.abs(scaleFunc(n) - x0);
-            //     };
-            // })(methods.xScale)
 
             /**
              * Calculates the width of a bar while taking into consideration the width of previous bars.
@@ -506,16 +508,18 @@ function makePacingChart(settings) {
                         , bottom = Math.max(w - r.b.r - r.b.l,0)
                         , left = h - r.b.l - r.t.l
                     // t=top, b=bottom, l=left, r=right, i=inside (between boxes)
-                    let path_string = `M${r.t.l},0 
-                                        h${top} 
-                                        a${r.t.r} ${r.t.r}, 0, 0, 1, ${r.t.r} ${r.t.r} 
-                                        v${right} 
-                                        a${r.b.r} ${r.b.r}, 0, 0, 1, -${r.b.r} ${r.b.r}  
-                                        h-${bottom} 
-                                        a${r.b.l} ${r.b.l}, 0, 0, 1, -${r.b.l} -${r.b.l} 
-                                        v-${left} 
-                                        a${r.t.l} ${r.t.l}, 0, 0, 1, ${r.t.l} -${r.t.l} 
-                                        z`
+                    // With line breaks for clarity. Without for minifying
+                    // let path_string = `M${r.t.l},0
+                    //                     h${top}
+                    //                     a${r.t.r} ${r.t.r}, 0, 0, 1, ${r.t.r} ${r.t.r}
+                    //                     v${right}
+                    //                     a${r.b.r} ${r.b.r}, 0, 0, 1, -${r.b.r} ${r.b.r}
+                    //                     h-${bottom}
+                    //                     a${r.b.l} ${r.b.l}, 0, 0, 1, -${r.b.l} -${r.b.l}
+                    //                     v-${left}
+                    //                     a${r.t.l} ${r.t.l}, 0, 0, 1, ${r.t.l} -${r.t.l}
+                    //                     z`
+                    let path_string = `M${r.t.l},0 h${top} a${r.t.r} ${r.t.r}, 0, 0, 1, ${r.t.r} ${r.t.r} v${right} a${r.b.r} ${r.b.r}, 0, 0, 1, -${r.b.r} ${r.b.r} h-${bottom} a${r.b.l} ${r.b.l}, 0, 0, 1, -${r.b.l} -${r.b.l} v-${left} a${r.t.l} ${r.t.l}, 0, 0, 1, ${r.t.l} -${r.t.l} z`
                     return path_string
                 }
             }
@@ -907,7 +911,8 @@ function makePacingChart(settings) {
         chart.objs.g = chart.objs.g
             .append("svg")
             .attr("width", chart.width)
-            .attr("height", chart.height);
+            .attr("height", chart.height)
+            .attr("viewBox","0 0 "+chart.width+" "+chart.height);
 
         chart.objs.titles = chart.objs.g.append("g")
             .style("text-anchor", "end")
@@ -929,6 +934,12 @@ function makePacingChart(settings) {
             .text(function(d) {
                 return d[chart.settings.titleCols[1]];
             });
+
+        // Resize update hook
+        // If chart.settings.respChartCols = 0, no responsiveness
+        if (chart.settings.respChartCols > 0) {
+            d3.select(window).on('resize.' + chart.selector, function (d) {chart.resize(d)});
+        }
 
         // Create tooltip div
         chart.objs.tooltip = chart.objs.mainDiv.append('div').attr('class', 'tooltip');
