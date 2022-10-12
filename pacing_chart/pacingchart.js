@@ -92,7 +92,15 @@ function makePacingChart(settings) {
         return chart;
     }
 
-
+    /**
+     * Call a function against the chart object and return the chart object
+     * @param func A function to call on the chart object itself. Can be called before or after render depending on what the goal is.
+     * @return {{}}
+     */
+    chart.call = (func) => {
+        func(chart);
+        return chart;
+    }
     /**
      * Read and prepare the raw data (no calculations based on ranges as those could change).
      */

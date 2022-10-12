@@ -71,7 +71,7 @@
             titleCols: ['TYPE','YEAR'], // First one is main, second one is subtitle, any others are ignored
             linkCol: 'URL'
     }
-    d3.csv('data-sample3.csv', function(data) {
+    let chart = d3.csv('data-sample3.csv', function(data) {
         data.TARGET = +data.TARGET; // Numerical data should be converted to numbers. This is easily achieved by prepending "+"
         data.AMOUNT = +data.AMOUNT;
         data.PROJECTED_AMOUNT = +data.PROJECTED_AMOUNT;
@@ -79,7 +79,7 @@
         data.PREV_PROJECTED_AMOUNT = +data.PREV_PROJECTED_AMOUNT;
         return data;
     }).then( function(data) {return makePacingChart(settings_3).set({data:data}); }
-    ).then( function(chart) {chart.render()});
+    ).then( function(chart) {chart.render(); return chart});
 </script>
 </body>
 </html>
