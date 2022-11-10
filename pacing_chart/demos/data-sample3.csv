@@ -1,4 +1,5 @@
 YEAR,TYPE,TARGET,AMOUNT,PROJECTED_AMOUNT,PREV_AMOUNT,PREV_PROJECTED_AMOUNT,URL
 2022,Value,14500000,21800000,22750000,540000,25103000,https://gist.github.com/asielen/4d81bc4c450e1f4c4fa914edea8c0d71
+2022,Value2,0,21800000,22750000,540000,25103000,https://gist.github.com/asielen/4d81bc4c450e1f4c4fa914edea8c0d71
 2022,Count,100,5,25,20,40,https://www.realityprose.com
 2022,Count2,100,0,1,NaN,,https://www.realityprose.com

@@ -1,6 +1,6 @@
 /**
  * @fileOverview A D3 based chart for tracking progress against goals. Variation of a bullet chart.
- * @version 1.03
+ * @version 1.04
  * Tested on d3 v6 and v7
  */
 
@@ -171,6 +171,7 @@ function makePacingChart(settings) {
             }
 
             chartObj.metrics.targets = parseValues(chart.settings.targetsCols, index, chart.settings.cumulativeTargets);
+            console.log(chartObj.metrics.targets);
             chartObj.metrics.targetsMarkers = parseValues(chart.settings.targetsMarkersCols, index, chart.settings.cumulativeTargets);
             chartObj.metrics.targetsLastIndex = chartObj.metrics.targets.length - 1
             chartObj.metrics.results = parseValues(chart.settings.resultsCols, index, chart.settings.cumulativeResults);
@@ -586,6 +587,7 @@ function makePacingChart(settings) {
                 return y
             }
 
+
             /**
              * Generated classes for the results bars
              * @param d - chartObj
@@ -594,28 +596,26 @@ function makePacingChart(settings) {
              */
             methods.resultBarFormat = (d,i) => {
                 let return_text = "result s" + i; // Bar Index
-
                 // Width classes, every 25 pixels prepended with w
                 let width = methods.calcResultWidth(d, i);
                 for (let i = 0; i <= Math.round(width) ; i+=chart.settings.w_threshold) {
                     return_text += " w"+`${i}`
                 }
-
                 // Percent to target classes, every 10 percent prepended with p
-                for (let i = 0; i <= d.percent_to_target; i+=chart.settings.p_threshold) {
-                    return_text += " p"+`${Math.round(i*100)}`
+                if(d.percent_to_target != Infinity) {
+                    for (let i = 0; i <= d.percent_to_target; i += chart.settings.p_threshold) {
+                        return_text += " p" + `${Math.round(i * 100)}`
+                    }
                 }
                 // Call out the last one for easy targeting
                 if (i === metrics.resultsLastIndex) {
                     return_text += " last";
                 }
-
                 // Target name, human-readable and raw
                 return_text += " "+makeSafeForCSS(d.column);
                 if (d.column !== d.name) {
                     return_text += " " + makeSafeForCSS(d.name);
                 }
-
                 if (d.classes && d.classes.length) {
                     return_text += d.classes.join(" ")
                 }
@@ -633,7 +633,7 @@ function makePacingChart(settings) {
             methods.resultTextLabel = (d, i) => {
                 let return_text = chart.formatterValue(d.value);
                 let width = methods.calcResultWidth(d, i);
-                if (width >= chart.settings.minWidthForPercent) {
+                if (d.percent_to_target != Infinity && width >= chart.settings.minWidthForPercent) {
                     // Append percentage if there is room
                     return_text += " (" + chart.formatterPercent(d.percent_to_target) + ")";
                 }
@@ -679,8 +679,10 @@ function makePacingChart(settings) {
              */
             methods.resultMarkerFormat = (d, i) => {
                 let return_text = "marker s" + i;
-                for (let i = 0; i <= d.percent_to_target; i+=chart.settings.p_threshold) {
-                    return_text += " p"+`${Math.round(i*100)}`
+                if (d.percent_to_target != Infinity){
+                    for (let i = 0; i <= d.percent_to_target; i+=chart.settings.p_threshold) {
+                        return_text += " p"+`${Math.round(i*100)}`
+                    }
                 }
                 if (d.classes && d.classes.length) {
                     return_text += d.classes.join(" ")
