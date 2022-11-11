@@ -171,8 +171,6 @@ function makePacingChart(settings) {
             }
 
             chartObj.metrics.targets = parseValues(chart.settings.targetsCols, index, chart.settings.cumulativeTargets);
-            console.log(chartObj.metrics.targets);
-            console.log(chartObj.metrics.targets);
             chartObj.metrics.targetsMarkers = parseValues(chart.settings.targetsMarkersCols, index, chart.settings.cumulativeTargets);
             chartObj.metrics.targetsLastIndex = chartObj.metrics.targets.length - 1
             chartObj.metrics.results = parseValues(chart.settings.resultsCols, index, chart.settings.cumulativeResults);
